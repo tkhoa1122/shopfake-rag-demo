@@ -87,8 +87,8 @@ export default function BuyerAuthPage() {
         try {
           const decoded = jwtDecode<any>(res.data.token);
           const decodedRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-          if (decodedRole === "Admin") {
-            role = UserRole.ADMIN;
+          if (decodedRole === "Admin" || decodedRole === "SYSTEM_ADMIN") {
+            role = UserRole.SYSTEM_ADMIN;
           }
         } catch (e) {
           console.error("JWT Decode error:", e);
@@ -103,7 +103,7 @@ export default function BuyerAuthPage() {
         };
         dispatch(setUser({ user: buyerUser, token: res.data.token }));
         
-        if (role === UserRole.ADMIN) {
+        if (role === UserRole.SYSTEM_ADMIN) {
           router.push(`/admin`);
         } else {
           router.push(`/`);
