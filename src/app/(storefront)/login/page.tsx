@@ -90,7 +90,7 @@ export default function BuyerAuthPage() {
           createdAt: new Date().toISOString(),
         };
         dispatch(setUser({ user: buyerUser, token: res.data.token }));
-        router.push(`/${tenantId}`);
+        router.push(`/`);
       } else {
         setErrorMsg(res.message || "Đăng nhập thất bại");
       }
@@ -157,7 +157,7 @@ export default function BuyerAuthPage() {
         
         {/* Back Button Overlay */}
         <Link 
-          href={`/${tenantId}`}
+          href={`/`}
           className="absolute top-8 left-8 z-20 flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/30"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -171,7 +171,7 @@ export default function BuyerAuthPage() {
         {/* Mobile Back Button */}
         <div className="mb-8 lg:hidden">
           <Link 
-            href={`/${tenantId}`}
+            href={`/`}
             className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900"
           >
             <ArrowLeft className="h-4 w-4" />

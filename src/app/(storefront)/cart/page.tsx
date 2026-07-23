@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   Package
 } from "lucide-react";
-import { localCartAPI, type LocalCartItem } from "@/infrastructure/api/storefrontAPI";
+import { cartAPI } from "@/infrastructure/api/storefrontAPI";
+import type { CartItemResponse } from "@/types/api";
 import { authAPI } from "@/infrastructure/api/authAPI";
 
 const formatPrice = (price: number) =>
@@ -22,38 +23,56 @@ const formatPrice = (price: number) =>
 export default function CartPage() {
   const params = useParams();
   const tenantId = params.tenant_id as string;
-  const [cartItems, setCartItems] = useState<LocalCartItem[]>([]);
+  const [cartItems, setCartItems] = useState<(CartItemResponse & { imageUrl?: string })[]>([]);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
 
-  // ── Load giỏ hàng từ localStorage ────────────────────────────────────────
+  const loadCart = async () => {
+    try {
+      const res = await cartAPI.getCartItems({ pageIndex: 1, pageSize: 100 });
+      if (res.data?.items) {
+        setCartItems(res.data.items);
+      }
+    } catch (error) {
+      console.error("Failed to load cart", error);
+    }
+  };
+
+  // ── Load giỏ hàng từ API ────────────────────────────────────────
   useEffect(() => {
     if (!authAPI.isLoggedIn()) {
-      window.location.href = `/${tenantId}/login`;
+      window.location.href = `/login`;
       return;
     }
-    setCartItems(localCartAPI.getAll());
-  }, [tenantId]);
+    loadCart();
+  }, []);
 
   // ── Cập nhật số lượng ─────────────────────────────────────────────────────
-  const handleUpdateQty = (variantId: number, newQty: number) => {
+  const handleUpdateQty = async (id: number, newQty: number) => {
     if (newQty < 1) return;
-    localCartAPI.updateQuantity(variantId, newQty);
-    setCartItems(localCartAPI.getAll());
-    window.dispatchEvent(new Event("cartUpdated"));
+    try {
+      await cartAPI.updateQuantity(id, newQty);
+      window.dispatchEvent(new Event("cartUpdated"));
+      await loadCart();
+    } catch (error) {
+      console.error("Failed to update quantity", error);
+    }
   };
 
   // ── Xóa sản phẩm ─────────────────────────────────────────────────────────
-  const handleDelete = (variantId: number) => {
-    localCartAPI.remove(variantId);
-    setCartItems(localCartAPI.getAll());
-    window.dispatchEvent(new Event("cartUpdated"));
+  const handleDelete = async (id: number) => {
+    try {
+      await cartAPI.removeFromCart(id);
+      window.dispatchEvent(new Event("cartUpdated"));
+      await loadCart();
+    } catch (error) {
+      console.error("Failed to remove item", error);
+    }
   };
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
     // Simulate API Call for Checkout
     setTimeout(() => {
-      localCartAPI.clear();
       setCartItems([]);
       window.dispatchEvent(new Event("cartUpdated"));
       setIsOrderSuccess(true);
@@ -73,7 +92,7 @@ export default function CartPage() {
             Cảm ơn bạn đã mua sắm tại hệ thống của chúng tôi. Đơn hàng của bạn đang được xử lý và sẽ được giao trong thời gian sớm nhất.
           </p>
           <Link
-            href={`/${tenantId}`}
+            href={`/`}
             className="inline-block rounded-sm bg-[#2c5243] px-6 py-3 text-sm font-bold text-white transition-all hover:bg-[#1c362b] uppercase"
           >
             Tiếp tục mua sắm
@@ -93,7 +112,7 @@ export default function CartPage() {
             <h2 className="mt-6 text-xl font-bold text-gray-900 uppercase">Giỏ hàng trống</h2>
             <p className="mt-2 text-sm text-gray-500 mb-8">Hãy thêm sản phẩm vào giỏ để tiếp tục.</p>
             <Link
-              href={`/${tenantId}`}
+              href={`/`}
               className="rounded-sm bg-[#2c5243] px-8 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#1c362b] uppercase tracking-wider shadow-sm"
             >
               Tiếp tục mua sắm
@@ -151,7 +170,7 @@ export default function CartPage() {
                 {/* Items */}
                 <div className="space-y-5 flex-1 max-h-100 overflow-y-auto scrollbar-hide pr-2">
                   {cartItems.map((item) => (
-                    <div key={item.variantId} className="flex gap-4 items-start border-b border-gray-50 pb-5 last:border-0 last:pb-0">
+                    <div key={item.id} className="flex gap-4 items-start border-b border-gray-50 pb-5 last:border-0 last:pb-0">
                       <div className="h-24 w-20 shrink-0 overflow-hidden rounded-sm bg-gray-100 relative border border-gray-200">
                         {item.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -172,7 +191,7 @@ export default function CartPage() {
                               {item.productName}
                             </h3>
                             <button
-                              onClick={() => handleDelete(item.variantId)}
+                              onClick={() => handleDelete(item.id)}
                               className="text-gray-400 hover:text-red-500 transition-colors shrink-0"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -185,14 +204,14 @@ export default function CartPage() {
                           <div className="flex h-8 w-24 items-center rounded-sm border border-gray-300 bg-white">
                             <button
                               className="flex h-full w-8 items-center justify-center text-gray-500 hover:text-gray-900 transition-colors"
-                              onClick={() => handleUpdateQty(item.variantId, item.quantity - 1)}
+                              onClick={() => handleUpdateQty(item.id, item.quantity - 1)}
                             >
                               <Minus className="h-3 w-3" />
                             </button>
                             <span className="flex-1 text-center text-xs font-bold">{item.quantity}</span>
                             <button
                               className="flex h-full w-8 items-center justify-center text-gray-500 hover:text-gray-900 transition-colors"
-                              onClick={() => handleUpdateQty(item.variantId, item.quantity + 1)}
+                              onClick={() => handleUpdateQty(item.id, item.quantity + 1)}
                             >
                               <Plus className="h-3 w-3" />
                             </button>

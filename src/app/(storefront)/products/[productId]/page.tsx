@@ -12,15 +12,18 @@ import {
   RefreshCcw,
   Truck,
   Phone,
-  Check
+  Check,
+  Star
 } from "lucide-react";
+import { useAppSelector } from "@/application/hooks/reduxHooks";
 import {
   productAPI,
   variantAPI,
-  localCartAPI,
+  cartAPI,
+  feedbackAPI,
 } from "@/infrastructure/api/storefrontAPI";
 import { authAPI } from "@/infrastructure/api/authAPI";
-import type { ProductResponse, VariantResponse } from "@/types/api";
+import type { ProductResponse, VariantResponse, FeedbackResponse } from "@/types/api";
 import { StatusEnum } from "@/types/api";
 
 const formatPrice = (price: number) =>
@@ -41,6 +44,15 @@ export default function ProductDetailPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [quantity, setQuantity] = useState(1);
 
+  // Redux for user id
+  const user = useAppSelector((state) => state.user.user);
+
+  // Feedbacks
+  const [feedbacks, setFeedbacks] = useState<FeedbackResponse[]>([]);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
   useEffect(() => {
     setIsLoggedIn(authAPI.isLoggedIn());
   }, []);
@@ -51,12 +63,14 @@ export default function ProductDetailPage() {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [productRes, variantsRes] = await Promise.all([
+        const [productRes, variantsRes, feedbacksRes] = await Promise.all([
           productAPI.getById(productIdNum),
           variantAPI.getAll({ pageIndex: 1, pageSize: 100 }),
+          feedbackAPI.getProductFeedbacks(productIdNum, { pageIndex: 1, pageSize: 20 }),
         ]);
 
         setProduct(productRes.data ?? null);
+        setFeedbacks(feedbacksRes.data?.items ?? []);
 
         const productVariants = (variantsRes.data?.items ?? []).filter(
           (v) => v.productId === productIdNum && v.status === StatusEnum.Active
@@ -77,28 +91,63 @@ export default function ProductDetailPage() {
     fetchAll();
   }, [productIdNum]);
 
-  // ── Thêm vào giỏ hàng (localStorage) ─────────────────────────────────────
-  const handleAddToCart = () => {
+  // ── Thêm vào giỏ hàng (API) ──────────────────────────────────────────────
+  const handleAddToCart = async () => {
     if (!isLoggedIn) {
-      window.location.href = `/${tenantId}/login`;
+      window.location.href = `/login`;
       return;
     }
     if (!selectedVariant) return;
 
-    localCartAPI.add({
-      variantId: selectedVariant.id,
-      productName: product?.name ?? "",
-      variantName: selectedVariant.variantName,
-      price: selectedVariant.price,
-      imageUrl: selectedVariant.imageUrl?.[0] ?? "",
-      quantity,
-    });
+    try {
+      await cartAPI.addToCart({
+        productVariantId: selectedVariant.id,
+        quantity,
+      });
 
-    // Notify Header to update cart count
-    window.dispatchEvent(new Event("cartUpdated"));
+      // Notify Header to update cart count
+      window.dispatchEvent(new Event("cartUpdated"));
 
-    setCartMessage("Đã thêm vào giỏ hàng!");
-    setTimeout(() => setCartMessage(null), 3000);
+      setCartMessage("Đã thêm vào giỏ hàng!");
+      setTimeout(() => setCartMessage(null), 3000);
+    } catch (err) {
+      console.error("Lỗi khi thêm giỏ hàng:", err);
+      setCartMessage("Có lỗi xảy ra!");
+      setTimeout(() => setCartMessage(null), 3000);
+    }
+  };
+
+  // ── Gửi đánh giá (API) ───────────────────────────────────────────────────
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      window.location.href = `/login`;
+      return;
+    }
+    if (!user?.id) {
+      alert("Lỗi không lấy được ID người dùng");
+      return;
+    }
+    
+    setSubmittingFeedback(true);
+    try {
+      await feedbackAPI.createFeedback({
+        accountId: user.id,
+        productId: productIdNum,
+        rating: feedbackRating,
+        comment: feedbackComment,
+      });
+      
+      const newFeedbacksRes = await feedbackAPI.getProductFeedbacks(productIdNum, { pageIndex: 1, pageSize: 20 });
+      setFeedbacks(newFeedbacksRes.data?.items ?? []);
+      setFeedbackComment("");
+      setFeedbackRating(5);
+    } catch (err) {
+      console.error("Lỗi khi gửi đánh giá", err);
+      alert("Không thể gửi đánh giá lúc này.");
+    } finally {
+      setSubmittingFeedback(false);
+    }
   };
 
   if (loading) {
@@ -115,7 +164,7 @@ export default function ProductDetailPage() {
         <Package className="h-16 w-16 text-gray-300" />
         <p className="text-gray-500 font-medium">Không tìm thấy sản phẩm.</p>
         <Link
-          href={`/${tenantId}`}
+          href={`/`}
           className="rounded-sm bg-[#2c5243] px-6 py-2.5 text-sm font-bold text-white uppercase"
         >
           Quay lại cửa hàng
@@ -132,7 +181,7 @@ export default function ProductDetailPage() {
       <div className="border-b border-gray-100 bg-[#f8f9fa]">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
           <nav className="flex items-center gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-            <Link href={`/${tenantId}`} className="hover:text-[#2c5243] transition-colors flex items-center gap-1">
+            <Link href={`/`} className="hover:text-[#2c5243] transition-colors flex items-center gap-1">
               Trang chủ
             </Link>
             <span>/</span>
@@ -322,6 +371,90 @@ export default function ProductDetailPage() {
 
           </div>
         </div>
+
+        {/* ── Feedbacks Section ───────────────────────────────────────────── */}
+        <div className="mt-16 border-t border-gray-200 pt-10">
+          <h2 className="text-xl font-bold text-gray-900 uppercase mb-8">Đánh giá từ khách hàng</h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            {/* Feedback List */}
+            <div className="lg:col-span-7 space-y-6">
+              {feedbacks.length === 0 ? (
+                <p className="text-sm text-gray-500 bg-gray-50 p-6 rounded-sm text-center">
+                  Chưa có đánh giá nào cho sản phẩm này. Hãy là người đầu tiên!
+                </p>
+              ) : (
+                feedbacks.map((fb) => (
+                  <div key={fb.id} className="border-b border-gray-100 pb-6 last:border-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-8 w-8 rounded-full bg-[#2c5243] text-white flex items-center justify-center text-xs font-bold uppercase shrink-0">
+                        {fb.accountName?.charAt(0) || "U"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{fb.accountName || "Tài khoản ẩn danh"}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-3 w-3 ${star <= fb.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="ml-auto text-xs text-gray-400">
+                        {new Date(fb.createdAt).toLocaleDateString("vi-VN")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-2">{fb.comment}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Feedback Form */}
+            <div className="lg:col-span-5">
+              <div className="bg-gray-50 p-6 rounded-sm border border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase mb-4">Viết đánh giá của bạn</h3>
+                <form onSubmit={handleSubmitFeedback} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-2">Đánh giá sao</label>
+                    <div className="flex items-center gap-2 cursor-pointer">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          onClick={() => setFeedbackRating(star)}
+                          className={`h-6 w-6 transition-colors ${
+                            star <= feedbackRating ? "fill-yellow-400 text-yellow-400" : "text-gray-300 hover:text-yellow-200"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="comment" className="block text-xs font-bold text-gray-700 mb-2">Nhận xét</label>
+                    <textarea
+                      id="comment"
+                      required
+                      rows={4}
+                      value={feedbackComment}
+                      onChange={(e) => setFeedbackComment(e.target.value)}
+                      className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-[#2c5243] focus:outline-none focus:ring-1 focus:ring-[#2c5243] resize-none"
+                      placeholder="Chia sẻ trải nghiệm của bạn..."
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submittingFeedback || !isLoggedIn}
+                    className="w-full bg-[#2c5243] text-white py-3 rounded-sm text-sm font-bold uppercase transition-colors hover:bg-[#1c362b] disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {submittingFeedback ? "Đang gửi..." : isLoggedIn ? "Gửi đánh giá" : "Đăng nhập để đánh giá"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

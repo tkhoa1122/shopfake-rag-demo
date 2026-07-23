@@ -7,11 +7,11 @@ import { Search, ShoppingBag, Menu, User, LogOut, UserCircle, ChevronDown } from
 import { useAppDispatch, useAppSelector } from "@/application/hooks/reduxHooks";
 import { logout } from "@/application/slices/userSlice";
 import { authAPI } from "@/infrastructure/api/authAPI";
-import { localCartAPI } from "@/infrastructure/api/storefrontAPI";
+import { localCartAPI, cartAPI } from "@/infrastructure/api/storefrontAPI";
 
 export function Header() {
   const params = useParams();
-  const tenantId = params.tenant_id as string;
+  const tenantId = (params?.tenant_id as string) || process.env.NEXT_PUBLIC_DEFAULT_TENANT || "eco-fashion";
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
@@ -23,19 +23,35 @@ export function Header() {
   const [cartCount, setCartCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
 
+  const fetchCartCount = async () => {
+    if (!isAuthenticated) {
+      setCartCount(0);
+      return;
+    }
+    try {
+      const res = await cartAPI.getCartItems({ pageIndex: 1, pageSize: 100 });
+      if (res.data?.items) {
+        const count = res.data.items.reduce((sum, item) => sum + item.quantity, 0);
+        setCartCount(count);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart items for count", error);
+    }
+  };
+
   useEffect(() => {
-    setCartCount(localCartAPI.getTotalCount());
-    const handleCartUpdate = () => setCartCount(localCartAPI.getTotalCount());
+    fetchCartCount();
+    const handleCartUpdate = () => fetchCartCount();
     window.addEventListener("cartUpdated", handleCartUpdate);
     return () => window.removeEventListener("cartUpdated", handleCartUpdate);
-  }, []);
+  }, [isAuthenticated]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/${tenantId}?q=${encodeURIComponent(searchQuery.trim())}#products`);
+      router.push(`/?q=${encodeURIComponent(searchQuery.trim())}#products`);
     } else {
-      router.push(`/${tenantId}#products`);
+      router.push(`/#products`);
     }
   };
 
@@ -44,7 +60,7 @@ export function Header() {
     authAPI.logout();
     // Xóa state trong Redux (reactive toàn bộ app)
     dispatch(logout());
-    router.push(`/${tenantId}`);
+    router.push(`/`);
   };
 
   return (
@@ -55,7 +71,7 @@ export function Header() {
           <button className="lg:hidden text-gray-500 hover:text-gray-900 transition-colors">
             <Menu className="h-6 w-6" />
           </button>
-          <Link href={`/${tenantId}`} className="flex items-center gap-2 group">
+          <Link href={`/`} className="flex items-center gap-2 group">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2c5243] text-[#A8E6CF] transition-transform group-hover:scale-105">
               <ShoppingBag className="h-5 w-5" />
             </div>
@@ -65,13 +81,13 @@ export function Header() {
           </Link>
 
           <nav className="hidden lg:ml-10 lg:flex lg:gap-8">
-            <Link href={`/${tenantId}#products`} className="text-sm font-semibold text-gray-900 hover:text-[#2c5243] transition-colors">
+            <Link href={`/#products`} className="text-sm font-semibold text-gray-900 hover:text-[#2c5243] transition-colors">
               MỚI NHẤT
             </Link>
-            <Link href={`/${tenantId}#products`} className="text-sm font-semibold text-gray-500 hover:text-[#2c5243] transition-colors">
+            <Link href={`/#products`} className="text-sm font-semibold text-gray-500 hover:text-[#2c5243] transition-colors">
               SẢN PHẨM
             </Link>
-            <Link href={`/${tenantId}#products`} className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors">
+            <Link href={`/#products`} className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors">
               SALE
             </Link>
           </nav>
@@ -102,7 +118,7 @@ export function Header() {
             />
           ) : (
             <Link
-              href={`/${tenantId}/login`}
+              href={`/login`}
               className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-medium text-slate-600 hover:border-[#2c5243] hover:text-[#2c5243] transition-colors"
             >
               <User className="h-4 w-4" />
@@ -112,7 +128,7 @@ export function Header() {
 
           {/* Cart Icon */}
           <Link
-            href={`/${tenantId}/cart`}
+            href={`/cart`}
             className="relative flex h-9 w-9 items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors"
             title="Giỏ hàng"
           >
@@ -189,7 +205,7 @@ function UserDropdown({ tenantId, displayName, onLogout }: UserDropdownProps) {
           {/* Menu items */}
           <div className="py-1">
             <Link
-              href={`/${tenantId}/login`}
+              href={`/login`}
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#2c5243]/5 hover:text-[#2c5243] transition-colors"

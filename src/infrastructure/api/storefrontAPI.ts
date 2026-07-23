@@ -29,6 +29,10 @@ import type {
   VariantResponse,
   ImageResponse,
   AttributeResponse,
+  CartItemRequest,
+  CartItemResponse,
+  FeedbackRequest,
+  FeedbackResponse,
 } from "@/types/api";
 
 // ============================================================================
@@ -196,4 +200,46 @@ export const localCartAPI = {
   getTotalCount: (): number => {
     return localCartAPI.getAll().reduce((sum, item) => sum + item.quantity, 0);
   },
+};
+
+// ============================================================================
+// 🛒 REAL CART API — GET, POST, PUT, DELETE /cart-items
+// ============================================================================
+
+export const cartAPI = {
+  getCartItems: async (params?: PaginationParams): Promise<ApiResponse<BasePaginatedList<CartItemResponse>>> => {
+    const { data } = await axiosClient.get<ApiResponse<BasePaginatedList<CartItemResponse>>>("/cart-items", { params });
+    return data;
+  },
+
+  addToCart: async (request: CartItemRequest): Promise<ApiResponse<null>> => {
+    const { data } = await axiosClient.post<ApiResponse<null>>("/cart-items", request);
+    return data;
+  },
+
+  updateQuantity: async (id: number, quantity: number): Promise<ApiResponse<null>> => {
+    const { data } = await axiosClient.put<ApiResponse<null>>(`/cart-items/${id}/${quantity}`);
+    return data;
+  },
+
+  removeFromCart: async (id: number): Promise<ApiResponse<null>> => {
+    const { data } = await axiosClient.delete<ApiResponse<null>>(`/cart-items/${id}`);
+    return data;
+  }
+};
+
+// ============================================================================
+// ⭐ FEEDBACK API — GET, POST /feedbacks
+// ============================================================================
+
+export const feedbackAPI = {
+  getProductFeedbacks: async (productId: number, params?: PaginationParams): Promise<ApiResponse<BasePaginatedList<FeedbackResponse>>> => {
+    const { data } = await axiosClient.get<ApiResponse<BasePaginatedList<FeedbackResponse>>>(`/feedbacks/product/${productId}`, { params });
+    return data;
+  },
+
+  createFeedback: async (request: FeedbackRequest): Promise<ApiResponse<null>> => {
+    const { data } = await axiosClient.post<ApiResponse<null>>("/feedbacks", request);
+    return data;
+  }
 };

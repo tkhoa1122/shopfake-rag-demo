@@ -224,7 +224,7 @@ function StorefrontContent() {
             {filteredProducts.map((product) => (
               <div key={product.productId} className="group relative">
                 <Link
-                  href={`/${tenantId}/products/${product.productId}`}
+                  href={`/products/${product.productId}`}
                   className="block"
                 >
                   <div className="relative aspect-4/5 w-full overflow-hidden rounded-sm bg-gray-100 group-hover:opacity-90 transition-opacity">
@@ -257,7 +257,7 @@ function StorefrontContent() {
                           onClick={(e) => {
                             e.preventDefault();
                             if (!isLoggedIn) {
-                              window.location.href = `/${tenantId}/login`;
+                              window.location.href = `/login`;
                               return;
                             }
                             localCartAPI.add({

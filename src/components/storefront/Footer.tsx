@@ -9,7 +9,7 @@ export function Footer({ tenantId }: { tenantId: string }) {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4 lg:grid-cols-5">
           {/* Brand & Contact */}
           <div className="md:col-span-2 lg:col-span-2">
-            <Link href={`/${tenantId}`} className="flex items-center gap-2 group mb-6">
+            <Link href={`/`} className="flex items-center gap-2 group mb-6">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2c5243] text-[#A8E6CF]">
                 <ShoppingBag className="h-5 w-5" />
               </div>
