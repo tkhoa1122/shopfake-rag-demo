@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { StoreProvider } from "@/components/providers/StoreProvider";
-import { Toaster } from "sonner"; // I'll use sonner as it's in package.json
+import { NotificationProvider } from "@/lib/contexts/NotificationContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,8 +20,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <StoreProvider>
-          {children}
-          <Toaster position="top-right" />
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
         </StoreProvider>
       </body>
     </html>

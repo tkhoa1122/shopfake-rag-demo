@@ -11,6 +11,7 @@ import { useAppDispatch } from "@/application/hooks/reduxHooks";
 import { setUser } from "@/application/slices/userSlice";
 import type { User } from "@/domain/entities/User";
 import { UserRole } from "@/domain/entities/User";
+import { jwtDecode } from "jwt-decode";
 
 // ─── Minimal UI Components (Simulating shadcn/ui) ──────────────────────────
 
@@ -81,16 +82,32 @@ export default function BuyerAuthPage() {
     try {
       const res = await authAPI.login({ email, password });
       if (res.code === 200 && res.data?.token) {
-        // Dispatch vào Redux Store → Header cập nhật ngay, không cần F5
+        // Decode JWT to get exact role
+        let role = UserRole.CUSTOMER;
+        try {
+          const decoded = jwtDecode<any>(res.data.token);
+          const decodedRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+          if (decodedRole === "Admin") {
+            role = UserRole.ADMIN;
+          }
+        } catch (e) {
+          console.error("JWT Decode error:", e);
+        }
+
         const buyerUser: User = {
-          id: "",          // Shopfake API chỉ trả token, không trả profile trong login
+          id: "",
           email,
-          name: email,   // Hiển thị tạm email, có thể gọi /auth/me sau để lấy đầy đủ
-          role: UserRole.CUSTOMER,
+          name: email,
+          role: role,
           createdAt: new Date().toISOString(),
         };
         dispatch(setUser({ user: buyerUser, token: res.data.token }));
-        router.push(`/`);
+        
+        if (role === UserRole.ADMIN) {
+          router.push(`/admin`);
+        } else {
+          router.push(`/`);
+        }
       } else {
         setErrorMsg(res.message || "Đăng nhập thất bại");
       }

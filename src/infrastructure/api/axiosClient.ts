@@ -1,4 +1,5 @@
 import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 // Base URL của Backend API (production: Render.com)
 export const API_BASE_URL =
@@ -19,6 +20,15 @@ axiosClient.interceptors.request.use(
       const token = localStorage.getItem("auth_token");
       if (token) {
         config.headers["Authorization"] = `Bearer ${token}`;
+        try {
+          const decoded = jwtDecode<any>(token);
+          const role = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+          if (role) {
+            config.headers["X-User-Role"] = role;
+          }
+        } catch (e) {
+          console.error("Error decoding JWT:", e);
+        }
       }
     }
     return config;

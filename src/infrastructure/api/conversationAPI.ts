@@ -1,14 +1,7 @@
 import axios from "axios";
 import type { ApiResponse, BasePaginatedList } from "@/types/api";
 
-// Chúng ta gọi Proxy API nội bộ của Next.js, không gọi trực tiếp lên backend
-const conversationAxios = axios.create({
-  baseURL: "/api/chat/conversations", // Đường dẫn Proxy
-  headers: {
-    "Content-Type": "application/json",
-  },
-  timeout: 30000,
-});
+import { axiosClient } from "@/infrastructure/api/axiosClient";
 
 export interface ChatMessage {
   id: string;
@@ -53,7 +46,7 @@ export const conversationAPI = {
    * POST /api/chat/conversations/messages
    */
   startConversation: async (command: SendMessageCommand): Promise<ApiResponse<Conversation>> => {
-    const { data } = await conversationAxios.post<ApiResponse<Conversation>>("/messages", command);
+    const { data } = await axiosClient.post<ApiResponse<Conversation>>("/chat/nessages", command);
     return data;
   },
 
@@ -62,7 +55,7 @@ export const conversationAPI = {
    * POST /api/chat/conversations/{id}/messages
    */
   sendMessage: async (conversationId: string, command: SendMessageCommand): Promise<ApiResponse<Conversation>> => {
-    const { data } = await conversationAxios.post<ApiResponse<Conversation>>(`/${conversationId}/messages`, command);
+    const { data } = await axiosClient.post<ApiResponse<Conversation>>(`/chat/${conversationId}/messages`, command);
     return data;
   },
 
@@ -76,8 +69,8 @@ export const conversationAPI = {
     lastCursor?: string,
     limit = 20
   ): Promise<ApiResponse<MessageListResponse>> => {
-    const { data } = await conversationAxios.get<ApiResponse<MessageListResponse>>(`/${conversationId}/messages`, {
-      params: { externalCustomerId, lastCursor, limit },
+    const { data } = await axiosClient.get<ApiResponse<MessageListResponse>>(`/chat/${conversationId}/messages`, {
+      params: { limit, ...(lastCursor ? { lastCursor } : {}) },
     });
     return data;
   },
@@ -91,8 +84,8 @@ export const conversationAPI = {
     pageIndex = 1,
     pageSize = 10
   ): Promise<ApiResponse<ConversationListResponse>> => {
-    const { data } = await conversationAxios.get<ApiResponse<ConversationListResponse>>("", {
-      params: { externalCustomerId, pageIndex, pageSize },
+    const { data } = await axiosClient.get<ApiResponse<ConversationListResponse>>("/chat", {
+      params: { pageIndex, pageSize },
     });
     return data;
   },
