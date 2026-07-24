@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Plus, Edit2, Trash2, Download, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Edit2, Trash2, Download, Search, ChevronLeft, ChevronRight, ChevronDown, X } from "lucide-react";
 import { adminAPI } from "@/infrastructure/api/adminAPI";
 import { useNotification } from "@/lib/contexts/NotificationContext";
 
@@ -24,6 +24,22 @@ export default function ProductsManagementPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Custom category dropdown state
+  const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
+  const [catSearch, setCatSearch] = useState("");
+  const catDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (catDropdownRef.current && !catDropdownRef.current.contains(e.target as Node)) {
+        setIsCatDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [formData, setFormData] = useState({
     categoryId: "",
     name: "",
@@ -268,19 +284,82 @@ export default function ProductsManagementPage() {
                     className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF]"
                   />
                 </div>
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Danh mục <span className="text-red-500">*</span></label>
-                  <select
-                    required
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF] bg-white"
-                  >
-                    <option value="">Chọn danh mục</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
+                  {/* Custom scrollable dropdown */}
+                  <div className="relative" ref={catDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => { setIsCatDropdownOpen(!isCatDropdownOpen); setCatSearch(""); }}
+                      className={`w-full flex items-center justify-between px-4 py-2 rounded-xl border text-sm transition-all ${
+                        formData.categoryId
+                          ? "border-slate-200 text-slate-900"
+                          : "border-slate-200 text-slate-400"
+                      } bg-white focus:outline-none focus:ring-2 focus:ring-[#A8E6CF]`}
+                    >
+                      <span className="truncate">
+                        {formData.categoryId
+                          ? categories.find(c => String(c.id) === formData.categoryId)?.name || "Chọn danh mục"
+                          : "Chọn danh mục"}
+                      </span>
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform shrink-0 ml-2 ${isCatDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isCatDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                        {/* Search inside dropdown */}
+                        <div className="p-2 border-b border-slate-100">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                            <input
+                              autoFocus
+                              type="text"
+                              placeholder="Tìm danh mục..."
+                              value={catSearch}
+                              onChange={(e) => setCatSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-[#A8E6CF]"
+                            />
+                          </div>
+                        </div>
+                        {/* List — max 7 items visible, then scroll */}
+                        <ul className="overflow-y-auto" style={{ maxHeight: "252px" }}>
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => { setFormData({ ...formData, categoryId: "" }); setIsCatDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                                !formData.categoryId ? "bg-[#A8E6CF]/20 text-[#2c5243] font-medium" : "text-slate-400 hover:bg-slate-50"
+                              }`}
+                            >
+                              Chọn danh mục
+                            </button>
+                          </li>
+                          {categories
+                            .filter(c => c.name?.toLowerCase().includes(catSearch.toLowerCase()))
+                            .map(cat => (
+                              <li key={cat.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => { setFormData({ ...formData, categoryId: String(cat.id) }); setIsCatDropdownOpen(false); }}
+                                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                                    String(cat.id) === formData.categoryId
+                                      ? "bg-[#A8E6CF]/20 text-[#2c5243] font-medium"
+                                      : "text-slate-700 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {cat.name}
+                                </button>
+                              </li>
+                            ))}
+                          {categories.filter(c => c.name?.toLowerCase().includes(catSearch.toLowerCase())).length === 0 && (
+                            <li className="px-4 py-3 text-sm text-slate-400 text-center">Không tìm thấy</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  {/* Hidden input for form validation */}
+                  <input type="hidden" required value={formData.categoryId} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Thương hiệu</label>
