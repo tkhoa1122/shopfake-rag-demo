@@ -27,8 +27,8 @@ export const adminAPI = {
   },
 
   // === CATEGORIES ===
-  getCategories: async () => {
-    const { data } = await axiosClient.get("/categories");
+  getCategories: async (pageSize = 100) => {
+    const { data } = await axiosClient.get("/categories", { params: { pageIndex: 1, pageSize } });
     return data;
   },
   getCategoryById: async (id: string | number) => {
