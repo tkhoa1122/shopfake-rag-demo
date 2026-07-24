@@ -13,8 +13,9 @@ export default function ProductsManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
-  // Search & Pagination
+  // Search, Sort & Pagination
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState("id_asc");
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -68,18 +69,32 @@ export default function ProductsManagementPage() {
 
   useEffect(() => { fetchProducts(); }, []);
 
-  // ── Filter & Paginate (client-side) ─────────────────────────────────────────────
-  const filtered = useMemo(() =>
-    products.filter(p =>
+  // ── Filter, Sort & Paginate (client-side) ─────────────────────────────────
+  const filteredAndSorted = useMemo(() => {
+    let result = products.filter(p =>
       p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.categoryName?.toLowerCase().includes(searchQuery.toLowerCase())
-    ), [products, searchQuery]);
+    );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    result.sort((a, b) => {
+      if (sortConfig === "id_asc") return (a.id || 0) - (b.id || 0);
+      if (sortConfig === "id_desc") return (b.id || 0) - (a.id || 0);
+      if (sortConfig === "price_asc") return (a.price || 0) - (b.price || 0);
+      if (sortConfig === "price_desc") return (b.price || 0) - (a.price || 0);
+      if (sortConfig === "name_asc") return (a.name || "").localeCompare(b.name || "");
+      if (sortConfig === "name_desc") return (b.name || "").localeCompare(a.name || "");
+      return 0;
+    });
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
+    return result;
+  }, [products, searchQuery, sortConfig]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / PAGE_SIZE));
+  const paginated = filteredAndSorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset về trang 1 khi search/sort thay đổi
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, sortConfig]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -201,7 +216,7 @@ export default function ProductsManagementPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Quản lý Sản phẩm</h1>
           <p className="text-slate-500 mt-1">
-            {isLoading ? "Đang tải..." : `Tổng cộng ${filtered.length} / ${products.length} sản phẩm`}
+            {isLoading ? "Đang tải..." : `Tổng cộng ${filteredAndSorted.length} / ${products.length} sản phẩm`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -223,16 +238,32 @@ export default function ProductsManagementPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Tìm theo tên, thương hiệu, danh mục..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF] focus:border-transparent transition-all text-sm bg-white"
-        />
+      {/* Toolbar: Search & Sort */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Tìm theo tên, thương hiệu, danh mục..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF] focus:border-transparent transition-all text-sm bg-white"
+          />
+        </div>
+        <div className="w-full sm:w-48 shrink-0">
+          <select
+            value={sortConfig}
+            onChange={(e) => setSortConfig(e.target.value)}
+            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-[#A8E6CF] transition-all text-sm bg-white"
+          >
+            <option value="id_asc">Cũ nhất (ID ↑)</option>
+            <option value="id_desc">Mới nhất (ID ↓)</option>
+            <option value="price_asc">Giá (Thấp đến cao)</option>
+            <option value="price_desc">Giá (Cao xuống thấp)</option>
+            <option value="name_asc">Tên (A-Z)</option>
+            <option value="name_desc">Tên (Z-A)</option>
+          </select>
+        </div>
       </div>
 
       {isModalOpen && (
@@ -490,7 +521,7 @@ export default function ProductsManagementPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100">
                 <p className="text-sm text-slate-500">
-                  Trang {currentPage} / {totalPages} &bull; {filtered.length} kết quả
+                  Trang {currentPage} / {totalPages} &bull; {filteredAndSorted.length} kết quả
                 </p>
                 <div className="flex items-center gap-1">
                   <button
