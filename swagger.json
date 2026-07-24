@@ -671,7 +671,7 @@
         }
       }
     },
-    "/api/v1/chat/nessages": {
+    "/api/v1/chat/messages": {
       "post": {
         "tags": [
           "Chat"

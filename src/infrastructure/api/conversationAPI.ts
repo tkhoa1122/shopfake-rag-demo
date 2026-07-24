@@ -46,7 +46,7 @@ export const conversationAPI = {
    * POST /api/chat/conversations/messages
    */
   startConversation: async (command: SendMessageCommand): Promise<ApiResponse<Conversation>> => {
-    const { data } = await axiosClient.post<ApiResponse<Conversation>>("/chat/nessages", command);
+    const { data } = await axiosClient.post<ApiResponse<Conversation>>("/chat/messages", command);
     return data;
   },
 
