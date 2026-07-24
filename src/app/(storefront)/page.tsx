@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { ShoppingBag, SlidersHorizontal, ArrowRight, Loader2 } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { productAPI, variantAPI, categoryAPI, localCartAPI } from "@/infrastructure/api/storefrontAPI";
+import { productAPI, variantAPI, categoryAPI, cartAPI } from "@/infrastructure/api/storefrontAPI";
 import type { ProductResponse, VariantResponse, CategoryResponse } from "@/types/api";
 import type { ProductCard } from "@/types/storefront";
 
@@ -254,20 +254,21 @@ function StorefrontContent() {
                     {product.stockQuantity > 0 && (
                       <div className="absolute inset-x-0 bottom-0 p-2 opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:p-4">
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.preventDefault();
                             if (!isLoggedIn) {
                               window.location.href = `/login`;
                               return;
                             }
-                            localCartAPI.add({
-                              variantId: product.variantId,
-                              productName: product.name,
-                              variantName: product.name,
-                              price: product.price,
-                              imageUrl: product.imageUrl,
-                            });
-                            window.dispatchEvent(new Event("cartUpdated"));
+                            try {
+                              await cartAPI.addToCart({
+                                productVariantId: product.variantId,
+                                quantity: 1,
+                              });
+                              window.dispatchEvent(new Event("cartUpdated"));
+                            } catch (err) {
+                              console.error("Lỗi thêm giỏ hàng:", err);
+                            }
                           }}
                           className="w-full rounded-sm bg-black/80 py-2.5 text-sm font-bold text-white shadow-sm backdrop-blur-md hover:bg-black uppercase tracking-wider"
                         >

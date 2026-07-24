@@ -7,7 +7,7 @@ import { Search, ShoppingBag, Menu, User, LogOut, UserCircle, ChevronDown } from
 import { useAppDispatch, useAppSelector } from "@/application/hooks/reduxHooks";
 import { logout } from "@/application/slices/userSlice";
 import { authAPI } from "@/infrastructure/api/authAPI";
-import { localCartAPI, cartAPI } from "@/infrastructure/api/storefrontAPI";
+import { cartAPI } from "@/infrastructure/api/storefrontAPI";
 
 export function Header() {
   const params = useParams();
