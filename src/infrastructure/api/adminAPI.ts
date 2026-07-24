@@ -43,11 +43,8 @@ export const adminAPI = {
     const { data } = await axiosClient.put(`/categories/${id}`, payload);
     return data;
   },
-  updateCategory: async (id: string, payload: any) => {
-    const { data } = await axiosClient.put(`/categories/${id}`, payload);
-    return data;
-  },
-  deleteCategory: async (id: string) => {
+
+  deleteCategory: async (id: string | number) => {
     const { data } = await axiosClient.delete(`/categories/${id}`);
     return data;
   },
@@ -69,11 +66,8 @@ export const adminAPI = {
     const { data } = await axiosClient.put(`/products/${id}`, payload);
     return data;
   },
-  updateProduct: async (id: string, payload: any) => {
-    const { data } = await axiosClient.put(`/products/${id}`, payload);
-    return data;
-  },
-  deleteProduct: async (id: string) => {
+
+  deleteProduct: async (id: string | number) => {
     const { data } = await axiosClient.delete(`/products/${id}`);
     return data;
   },
@@ -118,11 +112,11 @@ export const adminAPI = {
     const { data } = await axiosClient.post("/variants", payload);
     return data;
   },
-  updateVariant: async (id: string, payload: any) => {
+  updateVariant: async (id: string | number, payload: any) => {
     const { data } = await axiosClient.put(`/variants/${id}`, payload);
     return data;
   },
-  deleteVariant: async (id: string) => {
+  deleteVariant: async (id: string | number) => {
     const { data } = await axiosClient.delete(`/variants/${id}`);
     return data;
   },
