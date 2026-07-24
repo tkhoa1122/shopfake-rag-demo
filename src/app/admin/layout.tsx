@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     localStorage.removeItem("auth_user");
     document.cookie = "auth_token=; path=/; max-age=0";
     dispatch(logout());
-    router.push("/login");
+    router.push("/admin/login");
   };
 
   // Prevent flash of content before redirect or hydration

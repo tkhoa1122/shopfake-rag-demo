@@ -56,10 +56,14 @@ axiosClient.interceptors.response.use(
       localStorage.removeItem("auth_user");
       document.cookie = "auth_token=; path=/; max-age=0";
       // Redirect về login nếu đang ở trang cần auth (không phải trang public)
-      const publicPaths = ["/", "/login"];
+      const publicPaths = ["/", "/login", "/admin/login"];
       const isPublic = publicPaths.some((p) => window.location.pathname === p || window.location.pathname.startsWith("/products"));
       if (!isPublic && !config?._isRetry) {
-        window.location.href = "/login";
+        if (window.location.pathname.startsWith("/admin")) {
+          window.location.href = "/admin/login";
+        } else {
+          window.location.href = "/login";
+        }
       }
     }
 

@@ -101,7 +101,11 @@ function AuthHydrator() {
             localStorage.removeItem("auth_user");
             document.cookie = "auth_token=; path=/; max-age=0";
             store.dispatch(logout());
-            window.location.href = "/login";
+            if (window.location.pathname.startsWith("/admin")) {
+              window.location.href = "/admin/login";
+            } else {
+              window.location.href = "/login";
+            }
           }
         } catch {}
       }
