@@ -83,7 +83,7 @@ export default function BuyerAuthPage() {
       const res = await authAPI.login({ email, password });
       if (res.code === 200 && res.data?.token) {
         // Decode JWT to get exact role
-        let role = UserRole.CUSTOMER;
+        let role: UserRole = UserRole.CUSTOMER;
         try {
           const decoded = jwtDecode<any>(res.data.token);
           const decodedRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
