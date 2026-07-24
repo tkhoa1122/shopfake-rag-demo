@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useLayoutEffect, useEffect } from "react";
+import React, { useLayoutEffect, useEffect, useState } from "react";
 import { Provider } from "react-redux";
 import { store } from "@/application/store";
-import { setUser } from "@/application/slices/userSlice";
+import { setUser, logout } from "@/application/slices/userSlice";
 import { jwtDecode } from "jwt-decode";
+import { usePathname, useRouter } from "next/navigation";
 import { UserRole } from "@/domain/entities/User";
 import type { User } from "@/domain/entities/User";
 import { API_BASE_URL } from "@/infrastructure/api/axiosClient";
@@ -87,7 +88,76 @@ function AuthHydrator() {
     };
 
     store.dispatch(setUser({ user: userToDispatch, token }));
+
+    // ── Token Expiration Checker ─────────────────────────────────────────────
+    const checkInterval = setInterval(() => {
+      const currentToken = localStorage.getItem("auth_token");
+      if (currentToken) {
+        try {
+          const checkDecoded = jwtDecode<any>(currentToken);
+          if (checkDecoded.exp && checkDecoded.exp * 1000 < Date.now()) {
+            console.warn("[AuthHydrator] Token hết hạn trong lúc đang sử dụng, đăng xuất tự động.");
+            localStorage.removeItem("auth_token");
+            localStorage.removeItem("auth_user");
+            document.cookie = "auth_token=; path=/; max-age=0";
+            store.dispatch(logout());
+            window.location.href = "/login";
+          }
+        } catch {}
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(checkInterval);
   }, []);
+
+  return null;
+}
+
+/**
+ * Route protection logic for isolating Admin from Storefront.
+ */
+function RouteGuard() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    
+    // Listen to store changes (or we can just check local storage)
+    const unsubscribe = store.subscribe(() => {
+      const state = store.getState();
+      const user = state.user.user;
+      
+      // If user is SYSTEM_ADMIN and is NOT on an /admin route, log them out
+      if (user?.role === UserRole.SYSTEM_ADMIN && !pathname.startsWith("/admin")) {
+        console.warn("[RouteGuard] Admin tried to access storefront. Logging out.");
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_user");
+        document.cookie = "auth_token=; path=/; max-age=0";
+        store.dispatch(logout());
+        router.push("/admin/login");
+      }
+    });
+
+    // Check immediately on mount/path change
+    const state = store.getState();
+    const user = state.user.user;
+    if (user?.role === UserRole.SYSTEM_ADMIN && !pathname.startsWith("/admin")) {
+      console.warn("[RouteGuard] Admin tried to access storefront. Logging out.");
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      document.cookie = "auth_token=; path=/; max-age=0";
+      store.dispatch(logout());
+      router.push("/admin/login");
+    }
+
+    return () => unsubscribe();
+  }, [pathname, router, isMounted]);
 
   return null;
 }
@@ -119,6 +189,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
       <AuthHydrator />
+      <RouteGuard />
       <CloudRunWarmup />
       {children}
     </Provider>

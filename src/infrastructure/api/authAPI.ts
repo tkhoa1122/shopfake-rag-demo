@@ -87,10 +87,8 @@ export const authAPI = {
 function saveToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("auth_token", token);
-  // Cookie cho Next.js middleware
-  const expires = new Date();
-  expires.setDate(expires.getDate() + 7);
-  document.cookie = `auth_token=${token}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+  // Cookie cho Next.js middleware (1 day = 86400 seconds)
+  document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
 }
 
 function clearToken(): void {

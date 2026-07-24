@@ -35,17 +35,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Check auth client-side
     if (isMounted) {
       const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("auth_token") : false;
+      const isLoginPage = pathname === "/admin/login";
       
-      // If no user in redux and no token in localStorage, redirect to login
-      if (!user && !hasToken) {
-        router.replace("/login");
+      // If no user in redux and no token in localStorage, and not already on login page
+      if (!user && !hasToken && !isLoginPage) {
+        router.replace("/admin/login");
       } 
-      // If user is loaded but not an admin, redirect to storefront
-      else if (user && user.role !== UserRole.SYSTEM_ADMIN) {
+      // If user is loaded but not an admin (and not on login page where they can switch accounts)
+      else if (user && user.role !== UserRole.SYSTEM_ADMIN && !isLoginPage) {
         router.replace("/");
       }
     }
-  }, [user, router, isMounted]);
+  }, [user, router, isMounted, pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
@@ -57,8 +58,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Prevent flash of content before redirect or hydration
   const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("auth_token") : false;
-  if (!isMounted || (!user && hasToken) || (user && user.role !== UserRole.SYSTEM_ADMIN)) {
+  const isLoginPage = pathname === "/admin/login";
+
+  if (!isMounted || (!user && hasToken) || (user && user.role !== UserRole.SYSTEM_ADMIN && !isLoginPage)) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
+  }
+
+  if (isLoginPage) {
+    return <>{children}</>;
   }
 
   const SidebarContent = () => (

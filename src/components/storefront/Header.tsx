@@ -117,7 +117,7 @@ export function Header() {
           {/* User & Auth */}
           {!isMounted ? (
             <div className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 w-28 h-9 opacity-0"></div>
-          ) : isAuthenticated ? (
+          ) : isAuthenticated && user?.role !== "SYSTEM_ADMIN" ? (
             <UserDropdown
               tenantId={tenantId}
               displayName={user?.name || user?.email || "Tài khoản"}
