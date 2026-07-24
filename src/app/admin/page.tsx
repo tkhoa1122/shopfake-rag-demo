@@ -1,14 +1,42 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, Package, ShoppingCart, TrendingUp, ArrowRight } from "lucide-react";
+import { Users, Package, ShoppingCart, TrendingUp, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { adminAPI } from "@/infrastructure/api/adminAPI";
 
 export default function AdminDashboardOverview() {
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [accRes, prodRes] = await Promise.all([
+          adminAPI.getAccounts(),
+          adminAPI.getProducts({ pageSize: 1 })
+        ]);
+        
+        // Cố gắng lấy totalCount nếu API có phân trang, nếu không thì đếm số phần tử
+        const accCount = accRes.data?.totalCount ?? accRes.totalCount ?? (accRes.data?.items || accRes.items || accRes || []).length;
+        const prodCount = prodRes.data?.totalCount ?? prodRes.totalCount ?? (prodRes.data?.items || prodRes.items || prodRes || []).length;
+        
+        setTotalUsers(accCount);
+        setTotalProducts(prodCount);
+      } catch (err) {
+        console.error("Lỗi lấy thống kê", err);
+        setTotalUsers(0);
+        setTotalProducts(0);
+      }
+    };
+    
+    fetchStats();
+  }, []);
+
   const stats = [
-    { label: "Tổng người dùng", value: "1,234", icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
-    { label: "Sản phẩm", value: "856", icon: Package, color: "text-emerald-500", bg: "bg-emerald-50" },
+    { label: "Tổng người dùng", value: totalUsers !== null ? totalUsers.toString() : "...", icon: Users, color: "text-blue-500", bg: "bg-blue-50" },
+    { label: "Sản phẩm", value: totalProducts !== null ? totalProducts.toString() : "...", icon: Package, color: "text-emerald-500", bg: "bg-emerald-50" },
     { label: "Đơn hàng mới", value: "42", icon: ShoppingCart, color: "text-amber-500", bg: "bg-amber-50" },
     { label: "Doanh thu (Tháng)", value: "₫145.5M", icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-50" },
   ];

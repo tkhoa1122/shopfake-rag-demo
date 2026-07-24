@@ -20,11 +20,16 @@ export function Header() {
   const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   const user = useAppSelector((state) => state.user.user);
 
+  const [isMounted, setIsMounted] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const fetchCartCount = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || user?.role === "SYSTEM_ADMIN") {
       setCartCount(0);
       return;
     }
@@ -35,7 +40,7 @@ export function Header() {
         setCartCount(count);
       }
     } catch (error) {
-      console.error("Failed to fetch cart items for count", error);
+      // Ignore 403 or other errors to avoid console spam
     }
   };
 
@@ -110,7 +115,9 @@ export function Header() {
           </form>
 
           {/* User & Auth */}
-          {isAuthenticated ? (
+          {!isMounted ? (
+            <div className="flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 w-28 h-9 opacity-0"></div>
+          ) : isAuthenticated ? (
             <UserDropdown
               tenantId={tenantId}
               displayName={user?.name || user?.email || "Tài khoản"}

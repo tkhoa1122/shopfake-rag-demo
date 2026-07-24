@@ -1,14 +1,209 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Plus, Download, Tags } from "lucide-react";
+import { Loader2, Plus, Download, Tags, Trash2, Edit2 } from "lucide-react";
 import { adminAPI } from "@/infrastructure/api/adminAPI";
 import { useNotification } from "@/lib/contexts/NotificationContext";
 
 export default function VariantsManagementPage() {
   const { showNotification } = useNotification();
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Data state
+  const [attributes, setAttributes] = useState<any[]>([]);
+  const [attributeValues, setAttributeValues] = useState<any[]>([]);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+
+  // Modal states
+  const [isAttrModalOpen, setIsAttrModalOpen] = useState(false);
+  const [isValueModalOpen, setIsValueModalOpen] = useState(false);
+  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [editingVariantId, setEditingVariantId] = useState<string | number | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Form states
+  const [attrForm, setAttrForm] = useState({ name: "", code: "" });
+  const [valueForm, setValueForm] = useState({ attributeId: "", valueName: "", valueCode: "" });
+  const [variantForm, setVariantForm] = useState({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [attrRes, valRes, varRes, prodRes] = await Promise.all([
+        adminAPI.getAttributes(),
+        adminAPI.getAttributeValues(),
+        adminAPI.getVariants({ pageSize: 100 }),
+        adminAPI.getProducts({ pageSize: 100 })
+      ]);
+      setAttributes(attrRes.data?.items || attrRes.items || attrRes || []);
+      setAttributeValues(valRes.data?.items || valRes.items || valRes || []);
+      setVariants(varRes.data?.items || varRes.items || varRes || []);
+      setProducts(prodRes.data?.items || prodRes.items || prodRes || []);
+    } catch (err: any) {
+      showNotification("error", "Lỗi", "Không thể tải dữ liệu thuộc tính/biến thể");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleCreateAttribute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!attrForm.name || !attrForm.code) return;
+    try {
+      setIsSubmitting(true);
+      await adminAPI.createAttribute(attrForm);
+      showNotification("success", "Thành công", "Đã tạo Thuộc tính mới.");
+      setIsAttrModalOpen(false);
+      setAttrForm({ name: "", code: "" });
+      fetchData();
+    } catch (err: any) {
+      showNotification("error", "Lỗi", err.response?.data?.message || "Không thể tạo thuộc tính");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCreateValue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valueForm.attributeId || !valueForm.valueName) return;
+    try {
+      setIsSubmitting(true);
+      await adminAPI.createAttributeValue({
+        attributeId: parseInt(valueForm.attributeId),
+        valueText: valueForm.valueName,
+        slug: valueForm.valueName.toLowerCase().replace(/ /g, '-'),
+      });
+      showNotification("success", "Thành công", "Đã thêm Giá trị.");
+      setIsValueModalOpen(false);
+      setValueForm({ attributeId: "", valueName: "", valueCode: "" });
+      fetchData();
+    } catch (err: any) {
+      showNotification("error", "Lỗi", err.response?.data?.message || "Không thể tạo giá trị");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setVariantForm(prev => ({ ...prev, imageUrl: previewUrl }));
+  };
+
+  const handleVariantSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!variantForm.productId || !variantForm.variantName) return;
+    try {
+      setIsSubmitting(true);
+      const payload = {
+        productId: parseInt(variantForm.productId),
+        variantName: variantForm.variantName,
+        price: parseFloat(variantForm.price) || 0,
+        stockQuantity: parseInt(variantForm.stockQuantity) || 0,
+        sku: variantForm.sku,
+        weightGrams: parseInt(variantForm.weightGrams) || 0
+      };
+
+      let variantId = editingVariantId;
+      let hasUpdateError = false;
+      let updateErrMsg = "";
+
+      if (editingVariantId) {
+        try {
+          await adminAPI.updateVariant(editingVariantId, payload);
+          showNotification("success", "Thành công", "Đã cập nhật thông tin biến thể.");
+        } catch (err: any) {
+          hasUpdateError = true;
+          updateErrMsg = err.response?.data?.message || err.message || "Lỗi Server 500";
+          // Dùng console.warn để Next.js không hiện màn hình đen cảnh báo
+          console.warn("Lỗi khi updateVariant (Backend Bug):", err.message);
+        }
+      } else {
+        const res = await adminAPI.createVariant(payload);
+        variantId = res.data?.id || res.id || res;
+        showNotification("success", "Thành công", "Đã tạo biến thể mới.");
+      }
+
+      // Upload image if selected
+      if (selectedFile && variantId) {
+        try {
+          setIsUploading(true);
+          await adminAPI.uploadImage(selectedFile, parseInt(variantForm.productId), Number(variantId));
+          showNotification("success", "Thành công", "Đã lưu hình ảnh biến thể.");
+        } catch (imgErr) {
+          showNotification("error", "Lỗi upload ảnh", "Không thể lưu hình ảnh.");
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
+      if (hasUpdateError && !selectedFile) {
+        // Chỉ hiện lỗi update nếu không có upload ảnh (hoặc hiện cả hai)
+        showNotification("error", "Lỗi Cập nhật (Backend)", "Server từ chối cập nhật thông tin chữ: " + updateErrMsg);
+      } else if (hasUpdateError && selectedFile) {
+        showNotification("warning", "Thành công một phần", "Đã lưu ảnh, nhưng Server bị lỗi khi cập nhật thông tin chữ (Backend Error 500).");
+      }
+
+      handleCloseVariantModal();
+      fetchData();
+    } catch (err: any) {
+      console.error("Variant submit error:", err);
+      showNotification("error", "Lỗi", err.response?.data?.message || "Không thể lưu biến thể");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEditVariantClick = async (variant: any) => {
+    try {
+      setIsLoading(true);
+      const v = variant;
+      setVariantForm({
+        productId: v.productId?.toString() || v.product?.id?.toString() || "",
+        variantName: v.variantName || v.name || "",
+        price: v.price?.toString() || "0",
+        stockQuantity: v.stockQuantity?.toString() || "0",
+        sku: v.sku || "",
+        weightGrams: v.weightGrams?.toString() || "0",
+        imageUrl: v.imageUrl || ""
+      });
+      setEditingVariantId(v.id);
+      setIsVariantModalOpen(true);
+    } catch (err) {
+      showNotification("error", "Lỗi", "Không thể lấy thông tin biến thể");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloseVariantModal = () => {
+    setIsVariantModalOpen(false);
+    setEditingVariantId(null);
+    setSelectedFile(null);
+    setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+  };
+
+  const handleDeleteVariant = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa biến thể này?")) return;
+    try {
+      await adminAPI.deleteVariant(id);
+      showNotification("success", "Thành công", "Đã xóa biến thể.");
+      fetchData();
+    } catch (err: any) {
+      showNotification("error", "Lỗi", "Không thể xóa biến thể");
+    }
+  };
 
   const handleExportExcel = async () => {
     try {
@@ -29,26 +224,47 @@ export default function VariantsManagementPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center flex-col text-slate-500">
+        <Loader2 className="h-8 w-8 animate-spin text-[#A8E6CF] mb-4" />
+        <p>Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Thuộc tính & Biến thể</h1>
           <p className="text-slate-500 mt-1">Quản lý kích cỡ, màu sắc, phân loại sản phẩm</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={handleExportExcel}
-            disabled={isExporting}
-            className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl font-medium hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Xuất Excel Biến thể
-          </button>
-          <button className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-medium hover:bg-slate-800 transition-colors shadow-sm">
-            <Plus className="h-4 w-4" />
-            Thêm thuộc tính
-          </button>
+          <div className="flex items-center justify-between mb-4 mt-6">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              Danh sách Biến thể Sản phẩm
+            </h2>
+            <div className="flex gap-2">
+              <button 
+                onClick={handleExportExcel}
+                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl font-medium hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <Download className="h-4 w-4" />
+                Xuất Excel
+              </button>
+              <button 
+                onClick={() => {
+                  setEditingVariantId(null);
+                  setSelectedFile(null);
+                  setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+                  setIsVariantModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-medium hover:bg-slate-800 transition-colors shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Thêm Biến thể
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -56,17 +272,54 @@ export default function VariantsManagementPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6"
+          className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col h-full"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-              <Tags className="h-5 w-5" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <Tags className="h-5 w-5" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900">Thuộc tính & Giá trị</h2>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Danh sách Thuộc tính</h2>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setIsAttrModalOpen(true)}
+                className="text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 font-medium"
+              >
+                + Thuộc tính
+              </button>
+              <button 
+                onClick={() => setIsValueModalOpen(true)}
+                className="text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 font-medium"
+              >
+                + Giá trị
+              </button>
+            </div>
           </div>
           
-          <div className="text-center py-12 text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-            Tính năng đang được phát triển...
+          <div className="space-y-4 flex-1 overflow-y-auto pr-2" style={{ maxHeight: '400px' }}>
+            {attributes.length > 0 ? attributes.map(attr => (
+              <div key={attr.id} className="border border-slate-100 rounded-xl p-4 bg-slate-50/50">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-slate-900">{attr.name} <span className="text-xs text-slate-400 font-normal">({attr.code})</span></h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {attributeValues.filter(v => v.attributeId === attr.id || v.attribute?.id === attr.id).length > 0 ? (
+                    attributeValues.filter(v => v.attributeId === attr.id || v.attribute?.id === attr.id).map(val => (
+                      <span key={val.id} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-white border border-slate-200 text-slate-700 shadow-sm">
+                        {val.valueText || val.value || "N/A"}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-slate-400 italic">Chưa có giá trị</span>
+                  )}
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-8 text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                Chưa có thuộc tính nào
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -74,7 +327,7 @@ export default function VariantsManagementPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6"
+          className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col h-full"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
@@ -83,11 +336,195 @@ export default function VariantsManagementPage() {
             <h2 className="text-lg font-semibold text-slate-900">Danh sách Biến thể</h2>
           </div>
           
-          <div className="text-center py-12 text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-            Tính năng đang được phát triển...
+          <div className="overflow-x-auto flex-1">
+            {variants.length > 0 ? (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-500">
+                    <th className="pb-3 font-medium">Tên biến thể</th>
+                    <th className="pb-3 font-medium">Sản phẩm</th>
+                    <th className="pb-3 font-medium">Giá / Kho</th>
+                    <th className="pb-3 font-medium text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {variants.map(vari => (
+                    <tr key={vari.id} className="hover:bg-slate-50/50">
+                      <td className="py-3 font-medium text-slate-900">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-sm font-medium text-slate-900 line-clamp-1">{vari.variantName || vari.name}</p>
+                          <p className="text-xs text-slate-500 font-mono">{vari.id ? String(vari.id).substring(0, 8) : "N/A"}</p>
+                        </div>
+                      </td>
+                      <td className="py-3 text-slate-600">{vari.product?.name || vari.productId}</td>
+                      <td className="py-3 text-slate-600">
+                        <div>{vari.price?.toLocaleString()} ₫</div>
+                        <div className="text-xs text-slate-400">Kho: {vari.stockQuantity}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleEditVariantClick(vari)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button 
+                            onClick={() => vari.id && handleDeleteVariant(vari.id)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-center py-12 text-slate-500 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                Chưa có biến thể nào
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
+
+      {/* --- MODALS --- */}
+      {isAttrModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Thêm Thuộc tính</h2>
+            <form onSubmit={handleCreateAttribute} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Tên thuộc tính (VD: Kích cỡ)</label>
+                <input required type="text" value={attrForm.name} onChange={e => setAttrForm({...attrForm, name: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#A8E6CF]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Mã Code (VD: SIZE)</label>
+                <input required type="text" value={attrForm.code} onChange={e => setAttrForm({...attrForm, code: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#A8E6CF]" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setIsAttrModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800">Tạo mới</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {isValueModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h2 className="text-xl font-bold text-slate-900 mb-4">Thêm Giá trị thuộc tính</h2>
+            <form onSubmit={handleCreateValue} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Thuộc tính</label>
+                <select required value={valueForm.attributeId} onChange={e => setValueForm({...valueForm, attributeId: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-purple-200">
+                  <option value="">Chọn thuộc tính</option>
+                  {attributes.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Giá trị (VD: XL, Đỏ)</label>
+                <input required type="text" value={valueForm.valueName} onChange={e => setValueForm({...valueForm, valueName: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-200" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setIsValueModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 rounded-xl bg-purple-600 text-white hover:bg-purple-700">Tạo mới</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {isVariantModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl p-6 w-full max-w-xl shadow-xl max-h-[90vh] overflow-y-auto"
+          >
+            <h2 className="text-xl font-bold text-slate-900 mb-6">{editingVariantId ? "Cập nhật Biến Thể" : "Thêm Biến Thể Mới"}</h2>
+            <form onSubmit={handleVariantSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Hình ảnh biến thể</label>
+                  <div className="flex items-center gap-4">
+                    {variantForm.imageUrl ? (
+                      <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={variantForm.imageUrl} alt="Preview" className="h-full w-full object-cover" />
+                        <button type="button" onClick={() => { setVariantForm({...variantForm, imageUrl: ""}); setSelectedFile(null); }} className="absolute top-1 right-1 bg-white/80 rounded-full p-1 shadow-sm hover:bg-white text-rose-500">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-20 w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 text-slate-400">
+                        <span className={`text-xs ${isUploading ? 'hidden' : 'block'}`}>No Image</span>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
+                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Hỗ trợ JPG, PNG, WEBP. Tối đa 5MB.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Sản phẩm gốc</label>
+                  <select required value={variantForm.productId} onChange={e => setVariantForm({...variantForm, productId: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white">
+                    <option value="">Chọn sản phẩm</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Tên biến thể (VD: Giày Đỏ - Size 40)</label>
+                  <input required type="text" value={variantForm.variantName} onChange={e => setVariantForm({...variantForm, variantName: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Giá bán</label>
+                  <input required type="number" value={variantForm.price} onChange={e => setVariantForm({...variantForm, price: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Số lượng kho</label>
+                  <input required type="number" value={variantForm.stockQuantity} onChange={e => setVariantForm({...variantForm, stockQuantity: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Mã SKU</label>
+                  <input type="text" value={variantForm.sku} onChange={e => setVariantForm({...variantForm, sku: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Trọng lượng (gram)</label>
+                  <input type="number" value={variantForm.weightGrams} onChange={e => setVariantForm({...variantForm, weightGrams: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleCloseVariantModal}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-medium transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isUploading}
+                  className="px-4 py-2 rounded-xl bg-[#2c5243] text-white font-medium hover:bg-[#2c5243]/90 transition-colors flex items-center gap-2 disabled:opacity-70"
+                >
+                  {(isSubmitting || isUploading) ? "Đang xử lý..." : editingVariantId ? "Cập nhật" : "Tạo mới"}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,9 +22,15 @@ axiosClient.interceptors.request.use(
         config.headers["Authorization"] = `Bearer ${token}`;
         try {
           const decoded = jwtDecode<any>(token);
-          const role = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-          if (role) {
-            config.headers["X-User-Role"] = role;
+          const rawRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
+          if (rawRole) {
+            // Map backend role to the value the API expects in X-User-Role header
+            const roleMap: Record<string, string> = {
+              "Admin": "SYSTEM_ADMIN",
+              "admin": "SYSTEM_ADMIN",
+              "Administrator": "SYSTEM_ADMIN",
+            };
+            config.headers["X-User-Role"] = roleMap[rawRole] || rawRole;
           }
         } catch (e) {
           console.error("Error decoding JWT:", e);

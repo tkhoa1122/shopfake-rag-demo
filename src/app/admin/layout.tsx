@@ -6,7 +6,7 @@ import { LogOut, Users, Settings, Package, LayoutDashboard, Tags, AlignLeft, Men
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/application/hooks/reduxHooks";
-import { clearUser } from "@/application/slices/userSlice";
+import { logout } from "@/application/slices/userSlice";
 import { UserRole } from "@/domain/entities/User";
 import { cn } from "@/lib/utils";
 
@@ -34,9 +34,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Check auth client-side
     if (isMounted) {
-      if (!user) {
+      const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("auth_token") : false;
+      
+      // If no user in redux and no token in localStorage, redirect to login
+      if (!user && !hasToken) {
         router.replace("/login");
-      } else if (user.role !== UserRole.SYSTEM_ADMIN) {
+      } 
+      // If user is loaded but not an admin, redirect to storefront
+      else if (user && user.role !== UserRole.SYSTEM_ADMIN) {
         router.replace("/");
       }
     }
@@ -46,12 +51,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
     document.cookie = "auth_token=; path=/; max-age=0";
-    dispatch(clearUser());
+    dispatch(logout());
     router.push("/login");
   };
 
-  // Prevent flash of content before redirect
-  if (!isMounted || !user || user.role !== UserRole.SYSTEM_ADMIN) {
+  // Prevent flash of content before redirect or hydration
+  const hasToken = typeof window !== 'undefined' ? !!localStorage.getItem("auth_token") : false;
+  if (!isMounted || (!user && hasToken) || (user && user.role !== UserRole.SYSTEM_ADMIN)) {
     return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
   }
 

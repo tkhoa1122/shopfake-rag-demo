@@ -12,12 +12,17 @@ export const adminAPI = {
     const { data } = await axiosClient.post("/accounts", payload);
     return data;
   },
-  updateAccount: async (id: string, payload: any) => {
-    const { data } = await axiosClient.put(`/accounts`, { ...payload, id });
+  getAccountById: async (id: string | number) => {
+    const { data } = await axiosClient.get(`/accounts/${id}`);
     return data;
   },
-  deleteAccount: async (id: string) => {
-    const { data } = await axiosClient.delete(`/accounts`, { data: { id } });
+  updateAccount: async (id: string | number, payload: any) => {
+    // API backend không hỗ trợ truyền ID rõ ràng, có khả năng đây là cập nhật profile
+    const { data } = await axiosClient.put(`/accounts`, payload);
+    return data;
+  },
+  deleteAccount: async (id: string | number) => {
+    const { data } = await axiosClient.delete(`/accounts`, { params: { id } });
     return data;
   },
 
@@ -26,8 +31,16 @@ export const adminAPI = {
     const { data } = await axiosClient.get("/categories");
     return data;
   },
+  getCategoryById: async (id: string | number) => {
+    const { data } = await axiosClient.get(`/categories/${id}`);
+    return data;
+  },
   createCategory: async (payload: any) => {
     const { data } = await axiosClient.post("/categories", payload);
+    return data;
+  },
+  updateCategory: async (id: string | number, payload: any) => {
+    const { data } = await axiosClient.put(`/categories/${id}`, payload);
     return data;
   },
   updateCategory: async (id: string, payload: any) => {
@@ -44,8 +57,16 @@ export const adminAPI = {
     const { data } = await axiosClient.get("/products", { params });
     return data;
   },
+  getProductById: async (id: string | number) => {
+    const { data } = await axiosClient.get(`/products/${id}`);
+    return data;
+  },
   createProduct: async (payload: any) => {
     const { data } = await axiosClient.post("/products", payload);
+    return data;
+  },
+  updateProduct: async (id: string | number, payload: any) => {
+    const { data } = await axiosClient.put(`/products/${id}`, payload);
     return data;
   },
   updateProduct: async (id: string, payload: any) => {
@@ -60,9 +81,12 @@ export const adminAPI = {
     const response = await axiosClient.get("/excel/export", { responseType: 'blob' });
     return response.data;
   },
-  uploadImage: async (file: File) => {
+  uploadImage: async (file: File, productId?: number, variantId?: number) => {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("Image", file);
+    if (productId) formData.append("ProductId", productId.toString());
+    if (variantId) formData.append("VariantId", variantId.toString());
+    
     const { data } = await axiosClient.post("/images/upload", formData, {
       headers: { "Content-Type": "multipart/form-data" }
     });
@@ -70,6 +94,18 @@ export const adminAPI = {
   },
 
   // === VARIANTS & ATTRIBUTES ===
+  getAttributes: async () => {
+    const { data } = await axiosClient.get("/attributes");
+    return data;
+  },
+  getAttributeValues: async () => {
+    const { data } = await axiosClient.get("/attribute-values");
+    return data;
+  },
+  getVariants: async (params: any = {}) => {
+    const { data } = await axiosClient.get("/variants", { params });
+    return data;
+  },
   createAttribute: async (payload: any) => {
     const { data } = await axiosClient.post("/attributes", payload);
     return data;
