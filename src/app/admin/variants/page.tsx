@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Plus, Download, Tags, Trash2, Edit2 } from "lucide-react";
+import { Loader2, Plus, Download, Tags, Trash2, Edit2, Search, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { adminAPI } from "@/infrastructure/api/adminAPI";
 import { useNotification } from "@/lib/contexts/NotificationContext";
 
@@ -17,6 +17,11 @@ export default function VariantsManagementPage() {
   const [variants, setVariants] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
 
+  // Search & Paginate states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
+
   // Modal states
   const [isAttrModalOpen, setIsAttrModalOpen] = useState(false);
   const [isValueModalOpen, setIsValueModalOpen] = useState(false);
@@ -29,19 +34,32 @@ export default function VariantsManagementPage() {
   // Form states
   const [attrForm, setAttrForm] = useState({ name: "", code: "" });
   const [valueForm, setValueForm] = useState({ attributeId: "", valueName: "", valueCode: "" });
-  const [variantForm, setVariantForm] = useState({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+  const [variantForm, setVariantForm] = useState<{ productId: string, variantName: string, price: string, stockQuantity: string, sku: string, weightGrams: string, imageUrl: string, valueIds: number[] }>({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "", valueIds: [] });
+  
+  // Product Search state for Custom Dropdown
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  
+  const filteredProductsForSelect = React.useMemo(() => {
+    if (!productSearchQuery) return products;
+    return products.filter(p => p.name?.toLowerCase().includes(productSearchQuery.toLowerCase()));
+  }, [products, productSearchQuery]);
 
   const fetchData = async () => {
     try {
       setIsLoading(true);
       const [attrRes, valRes, varRes, prodRes] = await Promise.all([
-        adminAPI.getAttributes(),
-        adminAPI.getAttributeValues(),
-        adminAPI.getVariants({ pageSize: 100 }),
-        adminAPI.getProducts({ pageSize: 100 })
+        adminAPI.getAttributes({ pageSize: 500 }),
+        adminAPI.getAttributeValues({ pageSize: 500 }),
+        adminAPI.getVariants({ pageSize: 500 }), // Get up to 500 for client-side pagination
+        adminAPI.getProducts({ pageSize: 500 })
       ]);
-      setAttributes(attrRes.data?.items || attrRes.items || attrRes || []);
-      setAttributeValues(valRes.data?.items || valRes.items || valRes || []);
+      const attrs = attrRes.data?.items || attrRes.items || attrRes || [];
+      setAttributes(Array.isArray(attrs) ? attrs : []);
+      
+      const vals = valRes.data?.items || valRes.items || valRes || [];
+      setAttributeValues(Array.isArray(vals) ? vals : []);
+      
       setVariants(varRes.data?.items || varRes.items || varRes || []);
       setProducts(prodRes.data?.items || prodRes.items || prodRes || []);
     } catch (err: any) {
@@ -54,6 +72,24 @@ export default function VariantsManagementPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // ── Filter & Paginate ─────────────────────────────────────────────
+  const filteredVariants = React.useMemo(() => {
+    return variants.filter(v => {
+      const q = searchQuery.toLowerCase();
+      return (
+        v.variantName?.toLowerCase().includes(q) ||
+        v.name?.toLowerCase().includes(q) ||
+        v.sku?.toLowerCase().includes(q) ||
+        v.product?.name?.toLowerCase().includes(q)
+      );
+    });
+  }, [variants, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredVariants.length / PAGE_SIZE));
+  const paginatedVariants = filteredVariants.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery]);
 
   const handleCreateAttribute = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +137,15 @@ export default function VariantsManagementPage() {
     setVariantForm(prev => ({ ...prev, imageUrl: previewUrl }));
   };
 
+  const toggleValueId = (id: number) => {
+    setVariantForm(prev => ({
+      ...prev,
+      valueIds: prev.valueIds.includes(id)
+        ? prev.valueIds.filter(v => v !== id)
+        : [...prev.valueIds, id]
+    }));
+  };
+
   const handleVariantSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!variantForm.productId || !variantForm.variantName) return;
@@ -126,11 +171,10 @@ export default function VariantsManagementPage() {
         } catch (err: any) {
           hasUpdateError = true;
           updateErrMsg = err.response?.data?.message || err.message || "Lỗi Server 500";
-          // Dùng console.warn để Next.js không hiện màn hình đen cảnh báo
           console.warn("Lỗi khi updateVariant (Backend Bug):", err.message);
         }
       } else {
-        const res = await adminAPI.createVariant(payload);
+        const res = await adminAPI.createVariant(payload, variantForm.valueIds);
         variantId = res.data?.id || res.id || res;
         showNotification("success", "Thành công", "Đã tạo biến thể mới.");
       }
@@ -176,7 +220,8 @@ export default function VariantsManagementPage() {
         stockQuantity: v.stockQuantity?.toString() || "0",
         sku: v.sku || "",
         weightGrams: v.weightGrams?.toString() || "0",
-        imageUrl: v.imageUrl || ""
+        imageUrl: v.imageUrl || "",
+        valueIds: v.variantAttributeValues?.map((x: any) => x.attributeValueId) || []
       });
       setEditingVariantId(v.id);
       setIsVariantModalOpen(true);
@@ -191,7 +236,9 @@ export default function VariantsManagementPage() {
     setIsVariantModalOpen(false);
     setEditingVariantId(null);
     setSelectedFile(null);
-    setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+    setIsProductDropdownOpen(false);
+    setProductSearchQuery("");
+    setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "", valueIds: [] });
   };
 
   const handleDeleteVariant = async (id: string) => {
@@ -255,7 +302,7 @@ export default function VariantsManagementPage() {
                 onClick={() => {
                   setEditingVariantId(null);
                   setSelectedFile(null);
-                  setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "" });
+                  setVariantForm({ productId: "", variantName: "", price: "", stockQuantity: "", sku: "", weightGrams: "", imageUrl: "", valueIds: [] });
                   setIsVariantModalOpen(true);
                 }}
                 className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl font-medium hover:bg-slate-800 transition-colors shadow-sm"
@@ -329,15 +376,30 @@ export default function VariantsManagementPage() {
           transition={{ delay: 0.1 }}
           className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col h-full"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <Tags className="h-5 w-5" />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                <Tags className="h-5 w-5" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900">Danh sách Biến thể</h2>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">Danh sách Biến thể</h2>
+            
+            <div className="relative w-full sm:w-64">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Tìm tên, SKU..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all placeholder:text-slate-400"
+              />
+            </div>
           </div>
           
           <div className="overflow-x-auto flex-1">
-            {variants.length > 0 ? (
+            {paginatedVariants.length > 0 ? (
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-500">
@@ -348,7 +410,7 @@ export default function VariantsManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {variants.map(vari => (
+                  {paginatedVariants.map(vari => (
                     <tr key={vari.id} className="hover:bg-slate-50/50">
                       <td className="py-3 font-medium text-slate-900">
                         <div className="flex flex-col gap-1">
@@ -387,6 +449,30 @@ export default function VariantsManagementPage() {
               </div>
             )}
           </div>
+          
+          {totalPages > 1 && (
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                Hiển thị trang {currentPage} / {totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </motion.div>
       </div>
 
@@ -477,12 +563,88 @@ export default function VariantsManagementPage() {
                   </div>
                 </div>
 
-                <div className="col-span-2">
+                <div className="col-span-2 relative">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sản phẩm gốc</label>
-                  <select required value={variantForm.productId} onChange={e => setVariantForm({...variantForm, productId: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white">
+                  <div 
+                    className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white cursor-pointer flex justify-between items-center hover:border-slate-300 transition-colors"
+                    onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                  >
+                    <span className={`truncate ${variantForm.productId ? 'text-slate-900' : 'text-slate-400'}`}>
+                      {products.find(p => p.id?.toString() === variantForm.productId)?.name || "Chọn sản phẩm..."}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                  
+                  {isProductDropdownOpen && (
+                    <div className="absolute z-[60] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-hidden flex flex-col">
+                      <div className="p-2 border-b border-slate-100">
+                        <div className="relative">
+                          <Search className="h-4 w-4 absolute left-2 top-2 text-slate-400" />
+                          <input 
+                            type="text" 
+                            placeholder="Tìm tên sản phẩm..." 
+                            value={productSearchQuery}
+                            onChange={e => setProductSearchQuery(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                          />
+                        </div>
+                      </div>
+                      <div className="overflow-y-auto p-1">
+                        {filteredProductsForSelect.length > 0 ? filteredProductsForSelect.map(p => (
+                          <div 
+                            key={p.id} 
+                            className={`px-3 py-2 text-sm rounded-lg cursor-pointer hover:bg-slate-50 transition-colors ${variantForm.productId === p.id?.toString() ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-700'}`}
+                            onClick={() => {
+                              setVariantForm({...variantForm, productId: p.id?.toString()});
+                              setIsProductDropdownOpen(false);
+                              setProductSearchQuery("");
+                            }}
+                          >
+                            {p.name}
+                          </div>
+                        )) : (
+                          <div className="px-3 py-4 text-sm text-slate-400 text-center">Không tìm thấy sản phẩm</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Ẩn select gốc đi, nhưng vẫn dùng để validate form require */}
+                  <select required value={variantForm.productId} onChange={() => {}} className="sr-only">
                     <option value="">Chọn sản phẩm</option>
                     {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Đặc tính (Màu sắc, Kích cỡ...)</label>
+                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-4">
+                    {attributes.length > 0 ? attributes.map(attr => (
+                      <div key={attr.id}>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{attr.name}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {attributeValues.filter(v => v.attributeId === attr.id || v.attribute?.id === attr.id).length > 0 ? (
+                            attributeValues.filter(v => v.attributeId === attr.id || v.attribute?.id === attr.id).map(val => {
+                              const isSelected = variantForm.valueIds.includes(val.id);
+                              return (
+                                <button
+                                  type="button"
+                                  key={val.id}
+                                  onClick={() => toggleValueId(val.id)}
+                                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${isSelected ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-slate-700 border-slate-200 hover:border-purple-300'}`}
+                                >
+                                  {val.valueText}
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <span className="text-xs text-slate-400">Không có giá trị nào</span>
+                          )}
+                        </div>
+                      </div>
+                    )) : (
+                      <p className="text-sm text-slate-500">Chưa có thuộc tính nào trong hệ thống.</p>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên biến thể (VD: Giày Đỏ - Size 40)</label>

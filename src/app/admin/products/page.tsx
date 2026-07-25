@@ -277,14 +277,14 @@ export default function ProductsManagementPage() {
                 >
                   Hủy
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isUploading}
-                  className="px-4 py-2 rounded-xl bg-[#2c5243] text-white font-medium hover:bg-[#2c5243]/90 transition-colors disabled:opacity-70 flex items-center gap-2"
-                >
-                  {(isSubmitting || isUploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editingId ? "Cập nhật" : "Tạo mới"}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 rounded-xl bg-[#2c5243] text-white font-medium hover:bg-[#234236] transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingId ? "Cập nhật" : "Thêm mới"}
+                  </button>
               </div>
             </form>
           </motion.div>
