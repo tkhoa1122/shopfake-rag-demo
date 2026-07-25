@@ -88,12 +88,12 @@ export const adminAPI = {
   },
 
   // === VARIANTS & ATTRIBUTES ===
-  getAttributes: async () => {
-    const { data } = await axiosClient.get("/attributes");
+  getAttributes: async (params: any = {}) => {
+    const { data } = await axiosClient.get("/attributes", { params });
     return data;
   },
-  getAttributeValues: async () => {
-    const { data } = await axiosClient.get("/attribute-values");
+  getAttributeValues: async (params: any = {}) => {
+    const { data } = await axiosClient.get("/attribute-values", { params });
     return data;
   },
   getVariants: async (params: any = {}) => {
@@ -108,8 +108,15 @@ export const adminAPI = {
     const { data } = await axiosClient.post("/attribute-values", payload);
     return data;
   },
-  createVariant: async (payload: any) => {
-    const { data } = await axiosClient.post("/variants", payload);
+  createVariant: async (payload: any, valueIds?: number[]) => {
+    // If valueIds exist, send them as query params: ?valueIds=1&valueIds=2
+    const params = new URLSearchParams();
+    if (valueIds && valueIds.length > 0) {
+      valueIds.forEach(id => params.append("valueIds", id.toString()));
+    }
+    const { data } = await axiosClient.post("/variants", payload, {
+      params: params,
+    });
     return data;
   },
   updateVariant: async (id: string | number, payload: any) => {

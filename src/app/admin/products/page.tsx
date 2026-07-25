@@ -22,10 +22,7 @@ export default function ProductsManagementPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | number | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
   // Custom category dropdown state
   const [isCatDropdownOpen, setIsCatDropdownOpen] = useState(false);
   const [catSearch, setCatSearch] = useState("");
@@ -96,14 +93,7 @@ export default function ProductsManagementPage() {
   // Reset về trang 1 khi search/sort thay đổi
   useEffect(() => { setCurrentPage(1); }, [searchQuery, sortConfig]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    // Create a local preview URL
-    const previewUrl = URL.createObjectURL(file);
-    setFormData(prev => ({ ...prev, imageUrl: previewUrl }));
-  };
+  // Image upload moved to Variant level
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,19 +117,7 @@ export default function ProductsManagementPage() {
         productId = res.data?.id || res.id || res;
         showNotification("success", "Thành công", "Đã tạo sản phẩm mới.");
       }
-      
-      // Upload image if a new file was selected
-      if (selectedFile && productId) {
-        try {
-          setIsUploading(true);
-          await adminAPI.uploadImage(selectedFile, Number(productId));
-          showNotification("success", "Thành công", "Đã lưu hình ảnh sản phẩm.");
-        } catch (imgErr) {
-          showNotification("error", "Lỗi upload ảnh", "Sản phẩm đã tạo nhưng không thể lưu ảnh.");
-        } finally {
-          setIsUploading(false);
-        }
-      }
+
       
       handleCloseModal();
       fetchProducts();
@@ -176,7 +154,6 @@ export default function ProductsManagementPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setSelectedFile(null);
     setFormData({ categoryId: "", name: "", brand: "", description: "", slug: "", imageUrl: "" });
   };
 
@@ -276,35 +253,16 @@ export default function ProductsManagementPage() {
             <h2 className="text-xl font-bold text-slate-900 mb-6">{editingId ? "Cập nhật Sản Phẩm" : "Thêm Sản Phẩm Mới"}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Hình ảnh sản phẩm</label>
-                  <div className="flex items-center gap-4">
-                    {formData.imageUrl ? (
-                      <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={formData.imageUrl} alt="Preview" className="h-full w-full object-cover" />
-                        <button type="button" onClick={() => { setFormData({...formData, imageUrl: ""}); setSelectedFile(null); }} className="absolute top-1 right-1 bg-white/80 rounded-full p-1 shadow-sm hover:bg-white text-rose-500">
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="h-20 w-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 text-slate-400">
-                        <Loader2 className={`h-6 w-6 ${isUploading ? 'animate-spin' : 'hidden'}`} />
-                        <span className={`text-xs ${isUploading ? 'hidden' : 'block'}`}>No Image</span>
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={isUploading}
-                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-colors"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Hỗ trợ JPG, PNG, WEBP. Tối đa 5MB.</p>
+                {formData.imageUrl && (
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Hình ảnh đại diện (Lấy từ Biến thể)</label>
+                    <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-slate-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={formData.imageUrl} alt="Preview" className="h-full w-full object-cover" />
                     </div>
+                    <p className="text-xs text-slate-400 mt-1">Để thay đổi hình ảnh, vui lòng qua tab Quản lý Biến thể.</p>
                   </div>
-                </div>
+                )}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Tên sản phẩm <span className="text-red-500">*</span></label>
                   <input
@@ -428,14 +386,14 @@ export default function ProductsManagementPage() {
                 >
                   Hủy
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || isUploading}
-                  className="px-4 py-2 rounded-xl bg-[#2c5243] text-white font-medium hover:bg-[#2c5243]/90 transition-colors disabled:opacity-70 flex items-center gap-2"
-                >
-                  {(isSubmitting || isUploading) && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editingId ? "Cập nhật" : "Tạo mới"}
-                </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 rounded-xl bg-[#2c5243] text-white font-medium hover:bg-[#234236] transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {editingId ? "Cập nhật" : "Thêm mới"}
+                  </button>
               </div>
             </form>
           </motion.div>
