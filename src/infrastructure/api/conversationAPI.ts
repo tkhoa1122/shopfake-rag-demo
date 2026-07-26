@@ -24,7 +24,6 @@ export interface Conversation {
 
 export interface SendMessageCommand {
   message: string;
-  externalCustomerId: string;
 }
 
 export interface ConversationListResponse {
@@ -65,7 +64,6 @@ export const conversationAPI = {
    */
   getMessages: async (
     conversationId: string,
-    externalCustomerId: string,
     lastCursor?: string,
     limit = 20
   ): Promise<ApiResponse<MessageListResponse>> => {
@@ -80,7 +78,6 @@ export const conversationAPI = {
    * GET /api/chat/conversations
    */
   getConversations: async (
-    externalCustomerId: string,
     pageIndex = 1,
     pageSize = 10
   ): Promise<ApiResponse<ConversationListResponse>> => {

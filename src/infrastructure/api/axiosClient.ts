@@ -10,6 +10,7 @@ export const axiosClient = axios.create({
   timeout: 30000, // 30s timeout — đủ cho Cloud Run cold start (~5-15s)
   headers: {
     "Content-Type": "application/json",
+    "X-Tenant-Id": process.env.NEXT_PUBLIC_DEFAULT_TENANT || "eco-fashion",
   },
 });
 

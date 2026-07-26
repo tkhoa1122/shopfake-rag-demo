@@ -11,8 +11,6 @@ import { conversationAPI, type ChatMessage, type Conversation } from "@/infrastr
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-const EXTERNAL_CUSTOMER_ID = "demo-customer-123"; // ID giả định cho Storefront
-
 // --- Markdown Text Renderer ---
 function MarkdownText({ text }: { text: string }) {
   return (
@@ -113,7 +111,7 @@ export function FloatingChatbot() {
   const fetchConversations = useCallback(async () => {
     setLoadingConversations(true);
     try {
-      const res = await conversationAPI.getConversations(EXTERNAL_CUSTOMER_ID, 1, 50);
+      const res = await conversationAPI.getConversations(1, 50);
       const items = res.data?.items || [];
       // Sắp xếp mới nhất lên đầu
       items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -132,7 +130,7 @@ export function FloatingChatbot() {
   const loadMessages = useCallback(async (conversationId: string, cursor?: string) => {
     setLoadingMessages(true);
     try {
-      const res = await conversationAPI.getMessages(conversationId, EXTERNAL_CUSTOMER_ID, cursor, 20);
+      const res = await conversationAPI.getMessages(conversationId, cursor, 20);
       const newMessages = res.data?.items || [];
       
       // Backend trả về theo thứ tự mới nhất -> cũ nhất (hoặc ngược lại). 
@@ -225,13 +223,11 @@ export function FloatingChatbot() {
       let targetConvId = activeConversationId;
       if (activeConversationId && activeConversationId !== "new") {
         res = await conversationAPI.sendMessage(activeConversationId, {
-          message: text,
-          externalCustomerId: EXTERNAL_CUSTOMER_ID,
+          message: text
         });
       } else {
         res = await conversationAPI.startConversation({
-          message: text,
-          externalCustomerId: EXTERNAL_CUSTOMER_ID,
+          message: text
         });
         targetConvId = res.data?.conversationId || res.data?.id || null;
         setActiveConversationId(targetConvId);
@@ -283,7 +279,7 @@ export function FloatingChatbot() {
         });
       } else if (targetConvId) {
         // Fallback: nếu Backend không trả kèm messages trong response, ta tự fetch lại
-        const reloadRes = await conversationAPI.getMessages(targetConvId, EXTERNAL_CUSTOMER_ID, undefined, 20);
+        const reloadRes = await conversationAPI.getMessages(targetConvId, undefined, 20);
         if (reloadRes.data?.items) {
            const sorted = [...reloadRes.data.items].sort(
              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
