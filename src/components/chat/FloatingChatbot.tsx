@@ -8,21 +8,50 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { conversationAPI, type ChatMessage, type Conversation } from "@/infrastructure/api/conversationAPI";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const EXTERNAL_CUSTOMER_ID = "demo-customer-123"; // ID giả định cho Storefront
 
 // --- Markdown Text Renderer ---
 function MarkdownText({ text }: { text: string }) {
-  const parts = text.split(/(\*\*.*?\*\*)/g);
   return (
-    <span>
-      {parts.map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={i} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
-        }
-        return <React.Fragment key={i}>{part}</React.Fragment>;
-      })}
-    </span>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      className="prose prose-sm max-w-none dark:prose-invert break-words text-current"
+      components={{
+        p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
+        a: ({ node, ...props }) => (
+          <a
+            className="font-semibold text-[#1c362b] underline decoration-[#A8E6CF] decoration-2 underline-offset-2 hover:text-[#4a8a70] transition-colors"
+            target="_blank"
+            rel="noopener noreferrer"
+            {...props}
+          />
+        ),
+        img: ({ node, ...props }) => (
+          <img
+            className="my-2 max-w-full rounded-lg border border-border shadow-sm object-cover"
+            loading="lazy"
+            {...props}
+          />
+        ),
+        table: ({ node, ...props }) => (
+          <div className="my-3 w-full overflow-x-auto rounded-lg border border-border shadow-sm">
+            <table className="w-full text-left text-sm" {...props} />
+          </div>
+        ),
+        thead: ({ node, ...props }) => <thead className="bg-muted/50 text-xs uppercase text-muted-foreground" {...props} />,
+        th: ({ node, ...props }) => <th className="px-4 py-2 font-medium" {...props} />,
+        td: ({ node, ...props }) => <td className="border-t border-border px-4 py-2" {...props} />,
+        ul: ({ node, ...props }) => <ul className="mb-2 ml-4 list-disc space-y-1" {...props} />,
+        ol: ({ node, ...props }) => <ol className="mb-2 ml-4 list-decimal space-y-1" {...props} />,
+        li: ({ node, ...props }) => <li className="pl-1" {...props} />,
+        strong: ({ node, ...props }) => <strong className="font-bold text-inherit" {...props} />,
+      }}
+    >
+      {text}
+    </ReactMarkdown>
   );
 }
 
