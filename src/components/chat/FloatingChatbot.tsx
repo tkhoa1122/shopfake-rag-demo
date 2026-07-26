@@ -66,17 +66,18 @@ function StreamingMarkdown({ text, isStreaming = false, onComplete }: { text: st
     let i = 0;
     setDisplayedText("");
     const timer = setInterval(() => {
-      // Nhảy 2 ký tự mỗi lần để gõ nhanh hơn
-      i += 2;
+      // Nhảy 4 ký tự mỗi lần để giảm tải render ReactMarkdown
+      i += 4;
       setDisplayedText(text.slice(0, i));
       if (i >= text.length) {
         clearInterval(timer);
         if (onComplete) onComplete();
       }
-    }, 15); // tốc độ đánh chữ (ms)
+    }, 30); // tốc độ đánh chữ (ms)
     
     return () => clearInterval(timer);
-  }, [text, isStreaming, onComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, isStreaming]);
 
   return <MarkdownText text={displayedText} />;
 }
