@@ -87,7 +87,8 @@ export default function BuyerAuthPage() {
         try {
           const decoded = jwtDecode<any>(res.data.token);
           const decodedRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-          if (decodedRole === "Admin" || decodedRole === "SYSTEM_ADMIN") {
+          const roleStr = Array.isArray(decodedRole) ? decodedRole[0] : decodedRole;
+          if (roleStr === "Admin" || roleStr === "SYSTEM_ADMIN") {
             role = UserRole.SYSTEM_ADMIN;
           }
         } catch (e) {

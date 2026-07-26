@@ -44,11 +44,13 @@ function AuthHydrator() {
       const decoded = jwtDecode<any>(token);
 
       // Try multiple common claim keys for role
-      const rawRole: string =
+      let rawRole: string | string[] =
         decoded.role ||
         decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
         decoded.Role ||
         "";
+      
+      if (Array.isArray(rawRole)) rawRole = rawRole[0] || "";
 
       // Map backend role values to frontend UserRole constants
       const roleMap: Record<string, string> = {
@@ -65,7 +67,7 @@ function AuthHydrator() {
         "CUSTOMER": UserRole.CUSTOMER,
         "Customer": UserRole.CUSTOMER,
       };
-      role = roleMap[rawRole] || UserRole.CUSTOMER;
+      role = roleMap[rawRole as string] || UserRole.CUSTOMER;
 
       email =
         decoded.email ||
