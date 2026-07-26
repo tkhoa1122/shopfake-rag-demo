@@ -204,7 +204,7 @@ export function FloatingChatbot() {
           message: text,
           externalCustomerId: EXTERNAL_CUSTOMER_ID,
         });
-        targetConvId = res.data?.id || null;
+        targetConvId = res.data?.conversationId || res.data?.id || null;
         setActiveConversationId(targetConvId);
       }
 
@@ -223,7 +223,21 @@ export function FloatingChatbot() {
       }
 
       // Thay thế temp message và hiển thị AI message
-      if (res.data?.messages && res.data.messages.length > 0) {
+      if (res.data?.messageResponse) {
+        const aiMessage: ChatMessage & { isNewStreaming?: boolean } = {
+          id: Date.now().toString() + "-ai",
+          conversationId: targetConvId || "new",
+          senderType: "ChatBot",
+          content: res.data.messageResponse,
+          createdAt: new Date().toISOString(),
+          isNewStreaming: true
+        };
+        
+        setMessages((prev) => {
+          const filtered = prev.filter(m => m.id !== tempId);
+          return [...filtered, aiMessage];
+        });
+      } else if (res.data?.messages && res.data.messages.length > 0) {
         const sorted = [...res.data.messages].sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
