@@ -13,6 +13,16 @@ import remarkGfm from "remark-gfm";
 
 // --- Markdown Text Renderer ---
 function MarkdownText({ text }: { text: string }) {
+  // Tiền xử lý text: 
+  // 1. Chuyển đổi literal \n thành thực tế
+  let processedText = text.replace(/\\n/g, '\n');
+  
+  // 2. Tách các dòng table nếu backend lỡ nối chúng bằng khoảng trắng `| |`
+  processedText = processedText.replace(/\|\s+\|/g, '|\n|');
+
+  // 3. Đảm bảo có dòng trống trước khi bắt đầu table (chữ liền kề dấu |)
+  processedText = processedText.replace(/([^\n|])\s+(\|.*\|)/, '$1\n\n$2');
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
