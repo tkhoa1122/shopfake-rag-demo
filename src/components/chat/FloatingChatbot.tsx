@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import { conversationAPI, type ChatMessage, type Conversation } from "@/infrastructure/api/conversationAPI";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAppSelector } from "@/application/hooks/reduxHooks";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 // --- Markdown Text Renderer ---
 function MarkdownText({ text }: { text: string }) {
@@ -107,6 +110,7 @@ export function FloatingChatbot() {
   const [messages, setMessages] = useState<(ChatMessage & { isNewStreaming?: boolean })[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const isAuthenticated = useAppSelector((state) => state.user.isAuthenticated);
   
   // Pagination & Loading
   const [loadingConversations, setLoadingConversations] = useState(false);
@@ -169,13 +173,13 @@ export function FloatingChatbot() {
 
   // --- Effects ---
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isAuthenticated) {
       fetchConversations();
     }
-  }, [isOpen, fetchConversations]);
+  }, [isOpen, isAuthenticated, fetchConversations]);
 
   useEffect(() => {
-    if (activeConversationId) {
+    if (activeConversationId && isAuthenticated) {
       if (activeConversationId !== "new") {
         setLastCursor(undefined);
         setMessages([]);
@@ -373,7 +377,7 @@ export function FloatingChatbot() {
             )}>
               <div className="flex shrink-0 items-center justify-between border-b border-border p-4">
                 <h3 className="font-semibold text-foreground whitespace-nowrap">Hội thoại</h3>
-                <button onClick={createNewChat} className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20">
+                <button onClick={createNewChat} disabled={!isAuthenticated} className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50">
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
@@ -434,18 +438,28 @@ export function FloatingChatbot() {
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto bg-slate-50/50 p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted"
               >
-                {loadingMessages && (
-                  <div className="flex justify-center p-2 mb-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                {!isAuthenticated ? (
+                  <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-90">
+                    <Bot className="h-12 w-12 mb-3 text-[#A8E6CF]" />
+                    <p className="mb-4 text-center">Vui lòng đăng nhập<br/>để trò chuyện với AI.</p>
+                    <Button asChild variant="default" className="bg-[#4a8a70] hover:bg-[#396e59]">
+                      <Link href="/login">Đăng nhập</Link>
+                    </Button>
                   </div>
-                )}
-                
-                {(!messages || messages.length === 0) && !loadingMessages && (
-                  <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-50">
-                    <MessageCircle className="h-12 w-12 mb-3" />
-                    <p>Hãy gửi tin nhắn để bắt đầu!</p>
-                  </div>
-                )}
+                ) : (
+                  <>
+                    {loadingMessages && (
+                      <div className="flex justify-center p-2 mb-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    
+                    {(!messages || messages.length === 0) && !loadingMessages && (
+                      <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-50">
+                        <MessageCircle className="h-12 w-12 mb-3" />
+                        <p>Hãy gửi tin nhắn để bắt đầu!</p>
+                      </div>
+                    )}
 
                 <div className="flex flex-col gap-4">
                   {messages.map((msg) => {
@@ -505,6 +519,8 @@ export function FloatingChatbot() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+                  </>
+                )}
               </div>
 
               {/* Input Area */}
@@ -519,8 +535,9 @@ export function FloatingChatbot() {
                         handleSend();
                       }
                     }}
-                    placeholder="Hỏi AI về sản phẩm, size..."
-                    className="max-h-30 min-h-9 w-full resize-none bg-transparent py-2 pl-3 text-sm outline-none placeholder:text-muted-foreground"
+                    disabled={!isAuthenticated}
+                    placeholder={isAuthenticated ? "Hỏi AI về sản phẩm, size..." : "Vui lòng đăng nhập để chat..."}
+                    className="max-h-30 min-h-9 w-full resize-none bg-transparent py-2 pl-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
                     rows={1}
                   />
                   <button
