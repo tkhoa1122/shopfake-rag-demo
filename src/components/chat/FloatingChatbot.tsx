@@ -27,9 +27,9 @@ function MarkdownText({ text }: { text: string }) {
   processedText = processedText.replace(/([^\n|])\s+(\|.*\|)/, '$1\n\n$2');
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      className="prose prose-sm max-w-none dark:prose-invert break-words text-current"
+    <div className="prose prose-sm max-w-none dark:prose-invert break-words text-current">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
       components={{
         p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
         a: ({ node, ...props }) => (
@@ -61,8 +61,9 @@ function MarkdownText({ text }: { text: string }) {
         strong: ({ node, ...props }) => <strong className="font-bold text-inherit" {...props} />,
       }}
     >
-      {text}
+      {processedText}
     </ReactMarkdown>
+    </div>
   );
 }
 
