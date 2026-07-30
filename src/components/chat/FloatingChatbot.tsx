@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MessageCircle, X, Send, Bot, User, Menu, Plus, 
-  Loader2, ArrowDownCircle, Clock
+  Loader2, ArrowDownCircle, Clock, Mic
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { conversationAPI, type ChatMessage, type Conversation } from "@/infrastructure/api/conversationAPI";
@@ -120,8 +120,13 @@ export function FloatingChatbot() {
   const [lastCursor, setLastCursor] = useState<string | undefined>(undefined);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
 
+  // Ref cho scroll to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Speech Recognition
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // --- Fetch Data ---
   const fetchConversations = useCallback(async () => {
@@ -174,6 +179,33 @@ export function FloatingChatbot() {
 
   // --- Effects ---
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'vi-VN';
+
+        recognitionRef.current.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setInputValue((prev) => prev ? `${prev} ${transcript}` : transcript);
+          setIsListening(false);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error("Speech recognition error", event.error);
+          setIsListening(false);
+        };
+        
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (isOpen && isAuthenticated) {
       fetchConversations();
     }
@@ -193,7 +225,26 @@ export function FloatingChatbot() {
         setIsSidebarOpen(false);
       }
     }
-  }, [activeConversationId, loadMessages]);
+  }, [activeConversationId, loadMessages, isAuthenticated]);
+
+  const handleMicClick = () => {
+    if (!recognitionRef.current) {
+      alert("Trình duyệt của bạn không hỗ trợ nhận diện giọng nói (Web Speech API). Hãy thử dùng Chrome/Edge.");
+      return;
+    }
+    
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   // --- Handlers ---
   const handleScroll = () => {
@@ -542,8 +593,22 @@ export function FloatingChatbot() {
                     rows={1}
                   />
                   <button
+                    type="button"
+                    onClick={handleMicClick}
+                    disabled={!isAuthenticated}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+                      isListening
+                        ? "bg-red-100 text-red-500 hover:bg-red-200"
+                        : "text-muted-foreground hover:bg-slate-200 hover:text-foreground",
+                      !isAuthenticated && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={handleSend}
-                    disabled={!inputValue.trim() || isTyping}
+                    disabled={!inputValue.trim() || isTyping || !isAuthenticated}
                     className={cn(
                       "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all",
                       inputValue.trim() && !isTyping
