@@ -183,14 +183,21 @@ export function FloatingChatbot() {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
+        recognitionRef.current.continuous = true;
         recognitionRef.current.interimResults = false;
         recognitionRef.current.lang = 'vi-VN';
 
         recognitionRef.current.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setInputValue((prev) => prev ? `${prev} ${transcript}` : transcript);
-          setIsListening(false);
+          console.log("Speech event:", event);
+          const current = event.resultIndex;
+          const transcript = event.results[current][0].transcript;
+          
+          if (transcript) {
+            setInputValue((prev) => {
+              const newVal = prev ? `${prev} ${transcript}` : transcript;
+              return newVal;
+            });
+          }
         };
 
         recognitionRef.current.onerror = (event: any) => {
