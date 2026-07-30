@@ -292,13 +292,6 @@ export default function VariantsManagementPage() {
             </h2>
             <div className="flex gap-2">
               <button 
-                onClick={handleExportExcel}
-                className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl font-medium hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Download className="h-4 w-4" />
-                Xuất Excel
-              </button>
-              <button 
                 onClick={() => {
                   setEditingVariantId(null);
                   setSelectedFile(null);
