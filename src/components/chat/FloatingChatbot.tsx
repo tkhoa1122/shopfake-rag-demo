@@ -163,10 +163,9 @@ export function FloatingChatbot() {
       const res = await conversationAPI.getMessages(conversationId, cursor, 20);
       const newMessages = res.data?.items || [];
       
-      // Backend trả về theo thứ tự mới nhất -> cũ nhất (hoặc ngược lại). 
-      // Cần reverse lại để hiển thị đúng trong khung chat (cũ trên, mới dưới).
+      // Cần sort ngược lại (mới nhất -> cũ nhất) để phù hợp với flex-col-reverse
       const sortedMessages = [...newMessages].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
       if (cursor) {
@@ -377,7 +376,7 @@ export function FloatingChatbot() {
         setMessages((prev) => [aiMessage, ...prev]);
       } else if (res.data?.messages && res.data.messages.length > 0) {
         const sorted = [...res.data.messages].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setMessages((prev) => {
           // Xóa tin tạm
@@ -534,10 +533,10 @@ export function FloatingChatbot() {
               <div 
                 ref={messagesContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto bg-slate-50/50 p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted"
+                className="flex-1 flex flex-col-reverse overflow-y-auto bg-slate-50/50 p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-muted"
               >
                 {!isAuthenticated ? (
-                  <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-90">
+                  <div className="m-auto flex flex-col items-center justify-center text-muted-foreground opacity-90">
                     <Bot className="h-12 w-12 mb-3 text-[#A8E6CF]" />
                     <p className="mb-4 text-center">Vui lòng đăng nhập<br/>để trò chuyện với AI.</p>
                     <Link 
@@ -550,23 +549,9 @@ export function FloatingChatbot() {
                   </div>
                 ) : (
                   <>
-                    {loadingMessages && (
-                      <div className="flex justify-center p-2 mb-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                    
-                    {(!messages || messages.length === 0) && !loadingMessages && (
-                      <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-50">
-                        <MessageCircle className="h-12 w-12 mb-3" />
-                        <p>Hãy gửi tin nhắn để bắt đầu!</p>
-                      </div>
-                    )}
-
-                <div className="flex flex-col-reverse gap-4 pb-2">
                   {/* Typing Indicator ở đầu danh sách (dưới cùng UI) */}
                   {isTyping && (
-                    <div className="flex max-w-[85%] flex-col gap-1 self-start">
+                    <div className="flex max-w-[85%] flex-col gap-1 self-start mb-4">
                       <div className="flex items-end gap-2 flex-row">
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#A8E6CF] text-white shadow-sm">
                           <Bot className="h-4 w-4 text-[#2c5243]" />
@@ -621,7 +606,18 @@ export function FloatingChatbot() {
                     </div>
                   )})}
 
-                </div>
+                    {loadingMessages && (
+                      <div className="flex justify-center p-2 mt-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    
+                    {(!messages || messages.length === 0) && !loadingMessages && (
+                      <div className="m-auto flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                        <MessageCircle className="h-12 w-12 mb-3" />
+                        <p>Hãy gửi tin nhắn để bắt đầu!</p>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
