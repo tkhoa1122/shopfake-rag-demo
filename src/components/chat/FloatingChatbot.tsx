@@ -47,7 +47,7 @@ function MarkdownText({ text, onImageClick }: { text: string, onImageClick?: (sr
             className="my-2 max-w-full max-h-64 rounded-lg border border-border shadow-sm object-contain bg-white/50 cursor-pointer hover:opacity-90 transition-opacity"
             loading="lazy"
             onClick={() => {
-              if (onImageClick && props.src) {
+              if (onImageClick && typeof props.src === 'string') {
                 onImageClick(props.src, (props.alt as string) || '');
               }
             }}
@@ -297,11 +297,11 @@ export function FloatingChatbot() {
       }
       
       if (!match && alt) {
-        match = variantsList.find(v => v.product?.name?.toLowerCase() === searchLower);
+        match = variantsList.find(v => (v as any).product?.name?.toLowerCase() === searchLower);
       }
       
       if (!match && alt) {
-        match = variantsList.find(v => v.product?.name?.toLowerCase().includes(searchLower) || searchLower.includes(v.product?.name?.toLowerCase() || ''));
+        match = variantsList.find(v => (v as any).product?.name?.toLowerCase().includes(searchLower) || searchLower.includes((v as any).product?.name?.toLowerCase() || ''));
       }
 
       if (match) {
@@ -344,7 +344,7 @@ export function FloatingChatbot() {
         res = await conversationAPI.startConversation({
           message: text
         });
-        targetConvId = res.data?.conversationId || res.data?.id || null;
+        targetConvId = (res.data as any)?.conversationId || res.data?.id || null;
         setActiveConversationId(targetConvId);
       }
 
@@ -363,12 +363,12 @@ export function FloatingChatbot() {
       }
 
       // Thay thế temp message và hiển thị AI message
-      if (res.data?.messageResponse) {
+      if ((res.data as any)?.messageResponse) {
         const aiMessage: ChatMessage & { isNewStreaming?: boolean } = {
           id: Date.now().toString() + "-ai",
           conversationId: targetConvId || "new",
           senderType: "ChatBot",
-          content: res.data.messageResponse,
+          content: (res.data as any).messageResponse,
           createdAt: new Date().toISOString(),
           isNewStreaming: true
         };
