@@ -494,9 +494,12 @@ export function FloatingChatbot() {
                   <div className="flex h-full flex-col items-center justify-center text-muted-foreground opacity-90">
                     <Bot className="h-12 w-12 mb-3 text-[#A8E6CF]" />
                     <p className="mb-4 text-center">Vui lòng đăng nhập<br/>để trò chuyện với AI.</p>
-                    <Button asChild variant="default" className="bg-[#4a8a70] hover:bg-[#396e59]">
-                      <Link href="/login">Đăng nhập</Link>
-                    </Button>
+                    <Link 
+                      href="/login" 
+                      className="inline-flex h-9 items-center justify-center rounded-lg bg-[#4a8a70] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#396e59] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
+                    >
+                      Đăng nhập
+                    </Link>
                   </div>
                 ) : (
                   <>
