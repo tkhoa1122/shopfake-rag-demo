@@ -127,6 +127,7 @@ export function FloatingChatbot() {
   // Speech Recognition
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const [autoSendText, setAutoSendText] = useState<string | null>(null);
 
   // --- Fetch Data ---
   const fetchConversations = useCallback(async () => {
@@ -192,10 +193,8 @@ export function FloatingChatbot() {
           const transcript = event.results[0][0].transcript;
           
           if (transcript) {
-            setInputValue((prev) => {
-              const newVal = prev ? `${prev} ${transcript}` : transcript;
-              return newVal;
-            });
+            // Auto send text directly instead of just filling the input
+            setAutoSendText(transcript);
           }
         };
 
@@ -215,6 +214,14 @@ export function FloatingChatbot() {
       }
     }
   }, []);
+
+  // Effect to handle auto-sending after speech recognition
+  useEffect(() => {
+    if (autoSendText) {
+      handleSend(autoSendText);
+      setAutoSendText(null);
+    }
+  }, [autoSendText]);
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {
@@ -277,9 +284,9 @@ export function FloatingChatbot() {
     }
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) return;
-    const text = inputValue.trim();
+  const handleSend = async (overrideText?: any) => {
+    const text = typeof overrideText === 'string' ? overrideText.trim() : inputValue.trim();
+    if (!text) return;
     setInputValue("");
     
     // Optimistic UI
