@@ -12,10 +12,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAppSelector } from "@/application/hooks/reduxHooks";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { variantAPI } from "@/infrastructure/api/storefrontAPI";
 import { Button } from "@/components/ui/button";
 
 // --- Markdown Text Renderer ---
-function MarkdownText({ text }: { text: string }) {
+function MarkdownText({ text, onImageClick }: { text: string, onImageClick?: (src: string, alt: string) => void }) {
   // Tiền xử lý text: 
   // 1. Chuyển đổi literal \n thành thực tế
   let processedText = text.replace(/\\n/g, '\n');
@@ -42,8 +44,13 @@ function MarkdownText({ text }: { text: string }) {
         ),
         img: ({ node, ...props }) => (
           <img
-            className="my-2 max-w-full max-h-64 rounded-lg border border-border shadow-sm object-contain bg-white/50"
+            className="my-2 max-w-full max-h-64 rounded-lg border border-border shadow-sm object-contain bg-white/50 cursor-pointer hover:opacity-90 transition-opacity"
             loading="lazy"
+            onClick={() => {
+              if (onImageClick && props.src) {
+                onImageClick(props.src, (props.alt as string) || '');
+              }
+            }}
             {...props}
           />
         ),
@@ -68,7 +75,7 @@ function MarkdownText({ text }: { text: string }) {
 }
 
 // --- Streaming Markdown Component ---
-function StreamingMarkdown({ text, isStreaming = false, onComplete }: { text: string, isStreaming?: boolean, onComplete?: () => void }) {
+function StreamingMarkdown({ text, isStreaming = false, onComplete, onImageClick }: { text: string, isStreaming?: boolean, onComplete?: () => void, onImageClick?: (src: string, alt: string) => void }) {
   const [displayedText, setDisplayedText] = useState(isStreaming ? "" : text);
   
   useEffect(() => {
@@ -93,7 +100,7 @@ function StreamingMarkdown({ text, isStreaming = false, onComplete }: { text: st
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, isStreaming]);
 
-  return <MarkdownText text={displayedText} />;
+  return <MarkdownText text={displayedText} onImageClick={onImageClick} />;
 }
 
 // Helper kiểm tra người gửi
@@ -103,6 +110,7 @@ const isUserMessage = (senderType?: string) => senderType?.toLowerCase() === "us
 
 // --- Main Chatbot Component ---
 export function FloatingChatbot() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   
   // States
@@ -162,11 +170,9 @@ export function FloatingChatbot() {
       );
 
       if (cursor) {
-        setMessages((prev) => [...sortedMessages, ...prev]);
+        setMessages((prev) => [...prev, ...sortedMessages]);
       } else {
         setMessages(sortedMessages);
-        // Scroll to bottom only on first load
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "auto" }), 100);
       }
 
       setLastCursor(res.data?.nextCursor);
@@ -269,18 +275,44 @@ export function FloatingChatbot() {
     const container = messagesContainerRef.current;
     if (!container) return;
     
-    // Nếu cuộn lên gần đầu mút trên cùng (top) thì tải thêm tin nhắn
-    if (container.scrollTop <= 50 && !loadingMessages && hasMoreMessages && activeConversationId) {
-      // Lưu lại vị trí cuộn hiện tại để sau khi tải không bị giật
-      const oldScrollHeight = container.scrollHeight;
+    // Với flex-col-reverse, scrollTop gần 0 (âm hoặc dương tùy trình duyệt) hoặc -scrollTop 
+    // Tuy nhiên, React flex-col-reverse thường làm scrollTop âm trên Firefox/Safari hoặc cần check scrollHeight
+    // Cách an toàn: kiểm tra khoảng cách tới maxScroll
+    const distanceToTop = container.scrollHeight - Math.abs(container.scrollTop) - container.clientHeight;
+    
+    if (distanceToTop <= 50 && !loadingMessages && hasMoreMessages && activeConversationId) {
+      loadMessages(activeConversationId, lastCursor);
+    }
+  };
+
+  const handleImageClick = async (src: string, alt: string) => {
+    try {
+      const res = await variantAPI.getAll({ pageIndex: 1, pageSize: 100 });
+      const variantsList = res.data?.items || [];
+      const searchLower = alt.toLowerCase();
+
+      let match = variantsList.find(v => v.imageUrl?.includes(src));
       
-      loadMessages(activeConversationId, lastCursor).then(() => {
-        // Khôi phục vị trí cuộn
-        setTimeout(() => {
-          const newScrollHeight = container.scrollHeight;
-          container.scrollTop = newScrollHeight - oldScrollHeight;
-        }, 10);
-      });
+      if (!match && alt) {
+        match = variantsList.find(v => v.variantName?.toLowerCase() === searchLower);
+      }
+      
+      if (!match && alt) {
+        match = variantsList.find(v => v.product?.name?.toLowerCase() === searchLower);
+      }
+      
+      if (!match && alt) {
+        match = variantsList.find(v => v.product?.name?.toLowerCase().includes(searchLower) || searchLower.includes(v.product?.name?.toLowerCase() || ''));
+      }
+
+      if (match) {
+        setIsOpen(false);
+        router.push(`/products/${match.productId}?variant=${match.id}`);
+      } else {
+        alert("Không tìm thấy thông tin sản phẩm.");
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -299,9 +331,8 @@ export function FloatingChatbot() {
       createdAt: new Date().toISOString(),
     };
     
-    setMessages((prev) => [...prev, tempMsg]);
+    setMessages((prev) => [tempMsg, ...prev]);
     setIsTyping(true);
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
 
     try {
       let res;
@@ -343,9 +374,7 @@ export function FloatingChatbot() {
           isNewStreaming: true
         };
         
-        setMessages((prev) => {
-          return [...prev, aiMessage];
-        });
+        setMessages((prev) => [aiMessage, ...prev]);
       } else if (res.data?.messages && res.data.messages.length > 0) {
         const sorted = [...res.data.messages].sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -534,7 +563,25 @@ export function FloatingChatbot() {
                       </div>
                     )}
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col-reverse gap-4 pb-2">
+                  {/* Typing Indicator ở đầu danh sách (dưới cùng UI) */}
+                  {isTyping && (
+                    <div className="flex max-w-[85%] flex-col gap-1 self-start">
+                      <div className="flex items-end gap-2 flex-row">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#A8E6CF] text-white shadow-sm">
+                          <Bot className="h-4 w-4 text-[#2c5243]" />
+                        </div>
+                        <div className="rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-2.5 shadow-sm">
+                          <div className="flex items-center gap-1 h-5">
+                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {messages.map((msg) => {
                     const isUser = isUserMessage(msg.senderType);
                     return (
@@ -564,6 +611,7 @@ export function FloatingChatbot() {
                           <StreamingMarkdown 
                             text={msg.content} 
                             isStreaming={msg.isNewStreaming} 
+                            onImageClick={handleImageClick}
                             onComplete={() => {
                               setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isNewStreaming: false } : m))
                             }} 
@@ -573,24 +621,6 @@ export function FloatingChatbot() {
                     </div>
                   )})}
 
-                  {/* Typing Indicator */}
-                  {isTyping && (
-                    <div className="flex max-w-[85%] flex-col gap-1 self-start">
-                      <div className="flex items-end gap-2 flex-row">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#A8E6CF] text-white shadow-sm">
-                          <Bot className="h-4 w-4 text-[#2c5243]" />
-                        </div>
-                        <div className="rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-2.5 shadow-sm">
-                          <div className="flex items-center gap-1 h-5">
-                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
                 </div>
                   </>
                 )}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ShoppingBag,
@@ -33,6 +33,8 @@ export default function ProductDetailPage() {
   const params = useParams();
   const tenantId = params.tenant_id as string;
   const productId = params.productId as string;
+  const searchParams = useSearchParams();
+  const initialVariantId = searchParams.get("variant");
   const productIdNum = parseInt(productId, 10);
 
   const [product, setProduct] = useState<ProductResponse | null>(null);
@@ -78,8 +80,13 @@ export default function ProductDetailPage() {
         setVariants(productVariants);
 
         if (productVariants.length > 0) {
-          setSelectedVariant(productVariants[0]);
-          setSelectedImage(productVariants[0].imageUrl?.[0] ?? "");
+          let defaultVariant = productVariants[0];
+          if (initialVariantId) {
+            const found = productVariants.find((v) => v.id.toString() === initialVariantId);
+            if (found) defaultVariant = found;
+          }
+          setSelectedVariant(defaultVariant);
+          setSelectedImage(defaultVariant.imageUrl?.[0] ?? "");
         }
       } catch (err) {
         console.error("Lỗi:", err);
