@@ -42,7 +42,7 @@ function MarkdownText({ text }: { text: string }) {
         ),
         img: ({ node, ...props }) => (
           <img
-            className="my-2 max-w-full rounded-lg border border-border shadow-sm object-cover"
+            className="my-2 max-w-full max-h-64 rounded-lg border border-border shadow-sm object-contain bg-white/50"
             loading="lazy"
             {...props}
           />
