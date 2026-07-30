@@ -496,6 +496,7 @@ export function FloatingChatbot() {
                     <p className="mb-4 text-center">Vui lòng đăng nhập<br/>để trò chuyện với AI.</p>
                     <Link 
                       href="/login" 
+                      onClick={() => setIsOpen(false)}
                       className="inline-flex h-9 items-center justify-center rounded-lg bg-[#4a8a70] px-4 py-2 text-sm font-medium text-white shadow hover:bg-[#396e59] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors"
                     >
                       Đăng nhập
