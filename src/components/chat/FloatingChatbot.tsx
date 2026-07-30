@@ -381,7 +381,7 @@ export function FloatingChatbot() {
       return [{
         id: "new",
         title: "Hội thoại mới",
-        externalCustomerId: EXTERNAL_CUSTOMER_ID,
+        externalCustomerId: "",
         tenantId: "",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
