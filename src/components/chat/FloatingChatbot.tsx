@@ -194,7 +194,10 @@ export function FloatingChatbot() {
         };
 
         recognitionRef.current.onerror = (event: any) => {
-          console.error("Speech recognition error", event.error);
+          console.warn("Speech recognition error:", event.error);
+          if (event.error === 'network') {
+            alert("Lỗi kết nối mạng: Tính năng nhận diện giọng nói cần có Internet kết nối tới server nhận diện.");
+          }
           setIsListening(false);
         };
         
