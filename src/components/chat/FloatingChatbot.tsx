@@ -183,14 +183,13 @@ export function FloatingChatbot() {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = true;
+        recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
         recognitionRef.current.lang = 'vi-VN';
 
         recognitionRef.current.onresult = (event: any) => {
           console.log("Speech event:", event);
-          const current = event.resultIndex;
-          const transcript = event.results[current][0].transcript;
+          const transcript = event.results[0][0].transcript;
           
           if (transcript) {
             setInputValue((prev) => {
@@ -204,6 +203,8 @@ export function FloatingChatbot() {
           console.warn("Speech recognition error:", event.error);
           if (event.error === 'network') {
             alert("Lỗi kết nối mạng: Tính năng nhận diện giọng nói cần có Internet kết nối tới server nhận diện.");
+          } else if (event.error === 'not-allowed' || event.error === 'audio-capture') {
+            alert("Vui lòng cấp quyền sử dụng Micro (Microphone) cho trình duyệt để dùng tính năng này.");
           }
           setIsListening(false);
         };
