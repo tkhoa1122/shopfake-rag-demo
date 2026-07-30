@@ -326,8 +326,7 @@ export function FloatingChatbot() {
         };
         
         setMessages((prev) => {
-          const filtered = prev.filter(m => m.id !== tempId);
-          return [...filtered, aiMessage];
+          return [...prev, aiMessage];
         });
       } else if (res.data?.messages && res.data.messages.length > 0) {
         const sorted = [...res.data.messages].sort(
