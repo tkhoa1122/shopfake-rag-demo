@@ -40,6 +40,7 @@ export interface BasePaginatedList<T> {
 export interface PaginationParams {
   pageIndex?: number;
   pageSize?: number;
+  orderBy?: "price_asc" | "price_desc" | "name_asc" | "name_desc" | string;
 }
 
 // ============================================================================

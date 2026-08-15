@@ -33,6 +33,7 @@ function StorefrontContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [orderBy, setOrderBy] = useState<string>("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -48,7 +49,11 @@ function StorefrontContent() {
       const [productsRes, categoriesRes, variantsRes] = await Promise.all([
         productAPI.getAll({ pageIndex: 1, pageSize: 50 }),
         categoryAPI.getAll({ pageIndex: 1, pageSize: 100 }),
-        variantAPI.getAll({ pageIndex: 1, pageSize: 100 }),
+        variantAPI.getAll({
+          pageIndex: 1,
+          pageSize: 100,
+          orderBy: orderBy || undefined,
+        }),
       ]);
 
       const rawProducts: ProductResponse[] = productsRes.data?.items ?? [];
@@ -74,6 +79,21 @@ function StorefrontContent() {
         };
       });
 
+      // Sắp xếp productCards theo thứ tự của variants nếu có orderBy
+      if (orderBy) {
+        const variantOrderMap = new Map<number, number>();
+        rawVariants.forEach((v, index) => {
+          if (!variantOrderMap.has(v.productId)) {
+            variantOrderMap.set(v.productId, index);
+          }
+        });
+        productCards.sort((a, b) => {
+          const orderA = variantOrderMap.get(a.productId) ?? 9999;
+          const orderB = variantOrderMap.get(b.productId) ?? 9999;
+          return orderA - orderB;
+        });
+      }
+
       setProducts(productCards);
     } catch (err) {
       console.error("Lỗi khi tải dữ liệu:", err);
@@ -81,7 +101,7 @@ function StorefrontContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [orderBy]);
 
   useEffect(() => {
     fetchData();
@@ -181,13 +201,32 @@ function StorefrontContent() {
         id="products"
         className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"
       >
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 uppercase">
-            {searchQuery ? `Kết quả tìm kiếm cho "${searchQuery}"` : "Sản phẩm nổi bật"}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            {loading ? "Đang tải..." : `${filteredProducts.length} sản phẩm`}
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 uppercase">
+              {searchQuery ? `Kết quả tìm kiếm cho "${searchQuery}"` : "Sản phẩm nổi bật"}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {loading ? "Đang tải..." : `${filteredProducts.length} sản phẩm`}
+            </p>
+          </div>
+
+          {/* Sort Selector */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <SlidersHorizontal className="h-4 w-4 text-gray-500" />
+            <span className="text-sm font-medium text-gray-600">Sắp xếp:</span>
+            <select
+              value={orderBy}
+              onChange={(e) => setOrderBy(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-[#2c5243] focus:border-[#2c5243] focus:outline-none focus:ring-1 focus:ring-[#2c5243]"
+            >
+              <option value="">Mới nhất (Mặc định)</option>
+              <option value="price_asc">Giá: Thấp đến Cao</option>
+              <option value="price_desc">Giá: Cao đến Thấp</option>
+              <option value="name_asc">Tên: A → Z</option>
+              <option value="name_desc">Tên: Z → A</option>
+            </select>
+          </div>
         </div>
 
         {error && (
