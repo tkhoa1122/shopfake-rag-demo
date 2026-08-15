@@ -68,7 +68,8 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
       try {
         setLoading(true);
         const res = await orderAPI.getById(orderId);
-        setOrder(res?.data || res);
+        const data = res?.data?.data || res?.data || res;
+        setOrder(data);
       } catch (err: any) {
         setError(err?.response?.data?.message || "Không thể tải chi tiết đơn hàng.");
       } finally {
@@ -83,17 +84,24 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
     if (e.target === e.currentTarget) onClose();
   };
 
+  const items = order ? (order.orderItems || order.items || []) : [];
+  const status = order ? (order.paymentStatus || order.status || "Pending") : "Pending";
+  const orderCode = order ? (order.paymentCode || order.orderCode || `#${orderId}`) : `#${orderId}`;
+  const totalAmount = order
+    ? (order.totalAmount ?? items.reduce((sum: number, it: any) => sum + ((it.unitPrice ?? it.price ?? 0) * (it.quantity ?? 1)), 0))
+    : 0;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-sm shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Chi tiết đơn hàng</h2>
-            <p className="text-xs text-gray-400 mt-0.5">#{orderId}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Mã đơn: {orderCode}</p>
           </div>
           <button
             onClick={onClose}
@@ -108,7 +116,7 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
           {loading && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-[#2c5243]" />
-              <p className="text-sm text-gray-500">Đang tải...</p>
+              <p className="text-sm text-gray-500">Đang tải chi tiết đơn hàng...</p>
             </div>
           )}
           {error && (
@@ -120,54 +128,83 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
           {!loading && !error && order && (
             <>
               {/* Status */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-gray-700">Trạng thái</span>
-                <StatusBadge status={order.status || "Pending"} />
+              <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
+                <div>
+                  <span className="text-xs text-gray-500 block font-medium">Trạng thái đơn</span>
+                  <span className="text-sm font-bold text-gray-800">{order.paymentMethod ? `Phương thức: ${order.paymentMethod}` : "Trực tuyến"}</span>
+                </div>
+                <StatusBadge status={status} />
               </div>
 
               {/* Info Grid */}
-              <div className="rounded-sm border border-gray-100 bg-gray-50 divide-y divide-gray-100">
-                <InfoRow icon={<Hash className="h-4 w-4" />} label="Mã đơn hàng" value={`#${order.id}`} />
+              <div className="rounded-lg border border-gray-100 bg-gray-50 divide-y divide-gray-100">
+                <InfoRow icon={<Hash className="h-4 w-4" />} label="Mã giao dịch" value={orderCode} />
                 <InfoRow icon={<User className="h-4 w-4" />} label="Người nhận" value={order.receiverName} />
                 <InfoRow icon={<Phone className="h-4 w-4" />} label="Số điện thoại" value={order.receiverPhone} />
-                <InfoRow icon={<MapPin className="h-4 w-4" />} label="Địa chỉ" value={order.shippingAddress} />
+                <InfoRow icon={<MapPin className="h-4 w-4" />} label="Địa chỉ giao hàng" value={order.shippingAddress} />
                 {order.createdAt && (
-                  <InfoRow icon={<Calendar className="h-4 w-4" />} label="Ngày đặt" value={formatDate(order.createdAt)} />
+                  <InfoRow icon={<Calendar className="h-4 w-4" />} label="Thời gian đặt hàng" value={formatDate(order.createdAt)} />
                 )}
               </div>
 
               {/* Items list */}
-              {order.items && order.items.length > 0 && (
+              {items.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Sản phẩm đã đặt</h3>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase mb-3">Sản phẩm đã mua ({items.length})</h3>
                   <div className="space-y-3">
-                    {order.items.map((item: any, idx: number) => (
-                      <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-sm p-3 border border-gray-100">
-                        {item.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.imageUrl} alt={item.productName} className="h-14 w-12 object-cover rounded-sm shrink-0" />
-                        ) : (
-                          <div className="h-14 w-12 bg-gray-200 rounded-sm shrink-0 flex items-center justify-center">
-                            <ShoppingBag className="h-5 w-5 text-gray-400" />
+                    {items.map((item: any, idx: number) => {
+                      const itemName = item.productVariantName || item.variantName || item.productName || "Sản phẩm";
+                      const itemPrice = item.unitPrice ?? item.price ?? 0;
+                      const itemQty = item.quantity ?? 1;
+
+                      return (
+                        <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-100">
+                          {item.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.imageUrl} alt={itemName} className="h-14 w-14 object-cover rounded-md shrink-0" />
+                          ) : (
+                            <div className="h-14 w-14 bg-gray-200 rounded-md shrink-0 flex items-center justify-center">
+                              <ShoppingBag className="h-6 w-6 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 line-clamp-2">{itemName}</p>
+                            <p className="text-xs text-gray-500 mt-1">{formatPrice(itemPrice)} × {itemQty}</p>
                           </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{item.productName}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{item.variantName} × {item.quantity}</p>
+                          <p className="text-sm font-bold text-gray-900 shrink-0">{formatPrice(itemPrice * itemQty)}</p>
                         </div>
-                        <p className="text-sm font-bold text-gray-900 shrink-0">{formatPrice(item.price * item.quantity)}</p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Total */}
-              {order.totalAmount != null && (
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <span className="text-sm font-bold text-gray-900 uppercase">Tổng cộng</span>
-                  <span className="text-xl font-bold text-red-600">{formatPrice(order.totalAmount)}</span>
+              {/* Total Summary */}
+              <div className="rounded-lg bg-gray-50 p-4 border border-gray-100 space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Tạm tính</span>
+                  <span className="font-semibold text-gray-700">{formatPrice(totalAmount)}</span>
                 </div>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Phí vận chuyển</span>
+                  <span className="font-semibold text-emerald-600">Miễn phí</span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <span className="text-sm font-bold text-gray-900 uppercase">Tổng thanh toán</span>
+                  <span className="text-xl font-bold text-[#2c5243]">{formatPrice(totalAmount)}</span>
+                </div>
+              </div>
+
+              {/* Payment Action if Pending */}
+              {status.toLowerCase() === "pending" && order.paymentUrl && (
+                <a
+                  href={order.paymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center rounded-lg bg-[#2c5243] py-3 text-sm font-bold text-white shadow-md hover:bg-[#1f3c31] transition-all uppercase tracking-wider"
+                >
+                  Tiến hành thanh toán đơn hàng
+                </a>
               )}
             </>
           )}
