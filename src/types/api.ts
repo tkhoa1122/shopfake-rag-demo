@@ -154,6 +154,7 @@ export interface VariantResponse {
 export interface CartItemRequest {
   productVariantId: number;
   quantity: number;
+  conversationId?: string | null;
 }
 
 export interface CartItemResponse {
@@ -163,6 +164,8 @@ export interface CartItemResponse {
   productName: string;
   price: number;
   quantity: number;
+  conversationId?: string | null;
+  source?: "Product" | "Chat" | string;
 }
 
 // ============================================================================

@@ -241,8 +241,24 @@ export const cartAPI = {
     return data;
   },
 
-  addToCart: async (request: CartItemRequest): Promise<ApiResponse<null>> => {
-    const { data } = await axiosClient.post<ApiResponse<null>>("/cart-items", request);
+  addToCart: async (
+    request: CartItemRequest,
+    source: "Product" | "Chat" = "Product"
+  ): Promise<ApiResponse<null>> => {
+    const effectiveSource = request.conversationId ? "Chat" : source;
+    const { data } = await axiosClient.post<ApiResponse<null>>(
+      "/cart-items",
+      {
+        productVariantId: request.productVariantId,
+        quantity: request.quantity,
+        conversationId: effectiveSource === "Chat" ? request.conversationId : null,
+      },
+      {
+        params: {
+          addToCartSource: effectiveSource,
+        },
+      }
+    );
     return data;
   },
 

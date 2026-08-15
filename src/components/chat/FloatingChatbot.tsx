@@ -373,7 +373,14 @@ export function FloatingChatbot() {
         return;
       }
 
-      await cartAPI.addToCart({ productVariantId: variant.id, quantity: 1 });
+      await cartAPI.addToCart(
+        {
+          productVariantId: variant.id,
+          quantity: 1,
+          conversationId: activeConversationId || null,
+        },
+        "Chat"
+      );
       window.dispatchEvent(new Event("cartUpdated"));
       showNotification("success", "Đã thêm vào giỏ", `${variant.productName} – ${variant.variantName}`);
     } catch (error) {
