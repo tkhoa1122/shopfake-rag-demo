@@ -26,33 +26,12 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // ── Bảo vệ /orders (cần đăng nhập) ────────────────────────────────────────
-  if (pathname === "/orders" || pathname.startsWith("/orders/")) {
-    if (!token) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("from", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  // ── Bảo vệ /cart (cần đăng nhập) ──────────────────────────────────────────
-  if (pathname === "/cart") {
-    if (!token) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("from", "/cart");
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
   return NextResponse.next();
 }
 
-// Chỉ chạy middleware trên các routes cần bảo vệ (không chạy trên _next/static, ảnh, ...)
+// Chỉ chạy middleware trên routes admin cần bảo vệ nghiêm ngặt
 export const config = {
   matcher: [
     "/admin/:path*",
-    "/orders/:path*",
-    "/orders",
-    "/cart",
   ],
 };

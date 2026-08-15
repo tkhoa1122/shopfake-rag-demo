@@ -88,15 +88,17 @@ function saveToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("auth_token", token);
   // Cookie cho Next.js middleware (1 day = 86400 seconds)
-  document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+  const isHttps = window.location.protocol === "https:";
+  document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax${isHttps ? "; Secure" : ""}`;
 }
 
 function clearToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("auth_token");
   localStorage.removeItem("auth_user");
-  document.cookie = "auth_token=; path=/; max-age=0";
-  document.cookie = "user_role=; path=/; max-age=0";
+  const isHttps = window.location.protocol === "https:";
+  document.cookie = `auth_token=; path=/; max-age=0${isHttps ? "; Secure" : ""}`;
+  document.cookie = `user_role=; path=/; max-age=0${isHttps ? "; Secure" : ""}`;
 }
 
 export default authAPI;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ShoppingCart,
@@ -24,6 +24,7 @@ const formatPrice = (price: number) =>
 export default function CartPage() {
   const params = useParams();
   const tenantId = params.tenant_id as string;
+  const router = useRouter();
   const [cartItems, setCartItems] = useState<(CartItemResponse & { imageUrl?: string })[]>([]);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -65,7 +66,7 @@ export default function CartPage() {
   // ── Load giỏ hàng từ API ────────────────────────────────────────
   useEffect(() => {
     if (!authAPI.isLoggedIn()) {
-      window.location.href = `/login`;
+      router.push(`/login?from=/cart`);
       return;
     }
     loadCart();
