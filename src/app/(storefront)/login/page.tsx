@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowLeft, Loader2, Check } from "lucide-react";
 import Link from "next/link";
@@ -54,7 +54,7 @@ Checkbox.displayName = "Checkbox";
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
-export default function BuyerAuthPage() {
+function BuyerAuthPageContent() {
   const params = useParams();
   const tenantId = params.tenant_id as string;
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
@@ -416,5 +416,13 @@ export default function BuyerAuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BuyerAuthPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#5a9c82]" /></div>}>
+      <BuyerAuthPageContent />
+    </Suspense>
   );
 }
