@@ -18,7 +18,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { orderAPI, type OrderResponse } from "@/infrastructure/api/storefrontAPI";
+import { orderAPI, variantAPI, type OrderResponse } from "@/infrastructure/api/storefrontAPI";
+import type { VariantResponse } from "@/types/api";
 import { authAPI } from "@/infrastructure/api/authAPI";
 
 const formatPrice = (price: number) =>
@@ -48,7 +49,13 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_CONFIG[status] || { label: status, className: "bg-gray-100 text-gray-600 border border-gray-200" };
+  const normalized = Object.keys(STATUS_CONFIG).find(
+    (k) => k.toLowerCase() === status?.toLowerCase()
+  );
+  const cfg = (normalized && STATUS_CONFIG[normalized]) || {
+    label: status,
+    className: "bg-gray-100 text-gray-600 border border-gray-200",
+  };
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.className}`}>
       {cfg.label}
@@ -60,6 +67,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () => void }) {
   const [order, setOrder] = useState<any>(null);
+  const [variants, setVariants] = useState<VariantResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,9 +75,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
     const fetchDetail = async () => {
       try {
         setLoading(true);
-        const res = await orderAPI.getById(orderId);
+        const [res, variantsRes] = await Promise.all([
+          orderAPI.getById(orderId),
+          variantAPI.getAll({ pageIndex: 1, pageSize: 100 }),
+        ]);
         const data = res?.data?.data || res?.data || res;
         setOrder(data);
+        setVariants(variantsRes?.data?.items || []);
       } catch (err: any) {
         setError(err?.response?.data?.message || "Không thể tải chi tiết đơn hàng.");
       } finally {
@@ -90,6 +102,34 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
   const totalAmount = order
     ? (order.totalAmount ?? items.reduce((sum: number, it: any) => sum + ((it.unitPrice ?? it.price ?? 0) * (it.quantity ?? 1)), 0))
     : 0;
+
+  const getItemImage = (item: any): string => {
+    if (item.imageUrl) return item.imageUrl;
+    const name = (item.productVariantName || item.variantName || item.productName || "").toLowerCase().trim();
+    if (!name) return "";
+
+    // 1. Direct match on variantName
+    let match = variants.find((v) => v.variantName?.toLowerCase().trim() === name);
+    if (match?.imageUrl?.[0]) return match.imageUrl[0];
+
+    // 2. Direct match on productName + variantName
+    match = variants.find(
+      (v) =>
+        `${v.productName} - ${v.variantName}`.toLowerCase().trim() === name ||
+        `${v.productName} ${v.variantName}`.toLowerCase().trim() === name
+    );
+    if (match?.imageUrl?.[0]) return match.imageUrl[0];
+
+    // 3. Substring match
+    match = variants.find(
+      (v) =>
+        (v.variantName && name.includes(v.variantName.toLowerCase().trim())) ||
+        (v.productName && name.includes(v.productName.toLowerCase().trim()))
+    );
+    if (match?.imageUrl?.[0]) return match.imageUrl[0];
+
+    return "";
+  };
 
   return (
     <div
@@ -156,12 +196,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
                       const itemName = item.productVariantName || item.variantName || item.productName || "Sản phẩm";
                       const itemPrice = item.unitPrice ?? item.price ?? 0;
                       const itemQty = item.quantity ?? 1;
+                      const itemImage = getItemImage(item);
 
                       return (
                         <div key={idx} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          {item.imageUrl ? (
+                          {itemImage ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.imageUrl} alt={itemName} className="h-14 w-14 object-cover rounded-md shrink-0" />
+                            <img src={itemImage} alt={itemName} className="h-14 w-14 object-cover rounded-md shrink-0 border border-gray-200" />
                           ) : (
                             <div className="h-14 w-14 bg-gray-200 rounded-md shrink-0 flex items-center justify-center">
                               <ShoppingBag className="h-6 w-6 text-gray-400" />
