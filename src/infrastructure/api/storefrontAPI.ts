@@ -112,6 +112,35 @@ export const variantAPI = {
     );
     return data;
   },
+
+  /**
+   * Resolve the SKU included in an AI "add to cart" link to the variant
+   * identifier required by the cart API. The public API currently has no
+   * single-variant-by-SKU endpoint, so page through the catalogue instead of
+   * assuming that the desired variant is on the first page.
+   */
+  findBySku: async (sku: string): Promise<VariantResponse | null> => {
+    const normalizedSku = sku.trim().toLowerCase();
+    if (!normalizedSku) return null;
+
+    const pageSize = 100;
+    let pageIndex = 1;
+
+    while (true) {
+      const response = await variantAPI.getAll({ pageIndex, pageSize });
+      const page = response.data;
+      const match = page?.items.find(
+        (variant) => variant.sku?.trim().toLowerCase() === normalizedSku
+      );
+
+      if (match) return match;
+      if (!page || pageIndex >= page.totalPages || page.items.length === 0) {
+        return null;
+      }
+
+      pageIndex += 1;
+    }
+  },
 };
 
 // ============================================================================
@@ -242,4 +271,70 @@ export const feedbackAPI = {
     const { data } = await axiosClient.post<ApiResponse<null>>("/feedbacks", request);
     return data;
   }
+};
+
+// ============================================================================
+// 📦 ORDER API — GET /orders, GET /orders/{orderId}
+// ============================================================================
+
+export interface OrderResponse {
+  id: number;
+  receiverName: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  items?: OrderItemResponse[];
+}
+
+export interface OrderItemResponse {
+  id: number;
+  variantId: number;
+  variantName: string;
+  productName: string;
+  price: number;
+  quantity: number;
+  imageUrl?: string;
+}
+
+export const orderAPI = {
+  /**
+   * Lấy danh sách đơn hàng của user hiện tại (phân trang)
+   */
+  getAll: async (params?: { pageNumber?: number; pageSize?: number }): Promise<any> => {
+    const { data } = await axiosClient.get("/orders", { params });
+    return data;
+  },
+
+  /**
+   * Lấy chi tiết 1 đơn hàng theo ID
+   */
+  getById: async (orderId: number): Promise<any> => {
+    const { data } = await axiosClient.get(`/orders/${orderId}`);
+    return data;
+  },
+};
+
+// ============================================================================
+// 💳 PAYMENT API — POST /payments
+// ============================================================================
+
+export interface CheckoutPaymentRequest {
+  receiverName: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  returnUrl: string;
+  cancelUrl: string;
+}
+
+export const paymentAPI = {
+  /**
+   * Tạo đơn hàng và lấy payment URL từ PayOS
+   * Response chứa paymentUrl để redirect user
+   */
+  checkout: async (payload: CheckoutPaymentRequest): Promise<any> => {
+    const { data } = await axiosClient.post("/payments", payload);
+    return data;
+  },
 };
