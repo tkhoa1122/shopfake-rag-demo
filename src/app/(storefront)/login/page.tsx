@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowLeft, Loader2, Check } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { authAPI } from "@/infrastructure/api/authAPI";
 import { useAppDispatch } from "@/application/hooks/reduxHooks";
@@ -67,6 +67,8 @@ export default function BuyerAuthPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
 
   // Login Handlers
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -104,10 +106,11 @@ export default function BuyerAuthPage() {
         };
         dispatch(setUser({ user: buyerUser, token: res.data.token }));
         
+        router.refresh();
         if (role === UserRole.SYSTEM_ADMIN) {
-          router.push(`/admin`);
+          router.push(from || `/admin`);
         } else {
-          router.push(`/`);
+          router.push(from || `/`);
         }
       } else {
         setErrorMsg(res.message || "Đăng nhập thất bại");

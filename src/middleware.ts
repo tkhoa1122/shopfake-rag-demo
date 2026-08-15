@@ -13,7 +13,7 @@ import type { NextRequest } from "next/server";
  *   npm install jose
  *   rồi dùng jose.jwtVerify(token, secret) tại đây.
  */
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("auth_token")?.value;
 
