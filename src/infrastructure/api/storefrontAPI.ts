@@ -324,6 +324,7 @@ export interface CheckoutPaymentRequest {
   receiverName: string;
   receiverPhone: string;
   shippingAddress: string;
+  conversationId?: string | null;
   returnUrl: string;
   cancelUrl: string;
 }
