@@ -1,9 +1,8 @@
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 
-// Base URL của Backend API (production: Render.com)
+// Base URL của Backend API
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://shoppefake-yuky.onrender.com/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "https://shoppe-fake-427087851138.asia-southeast1.run.app/api/v1";
 
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -15,29 +14,15 @@ export const axiosClient = axios.create({
 });
 
 // ── Request Interceptor: tự động gắn JWT token nếu có ─────────────────────
+// NOTE: Chỉ gửi Authorization header — KHÔNG tự decode JWT hay tự thêm
+// X-User-Role. Backend phải đọc role trực tiếp từ JWT signature thay vì
+// tin vào bất kỳ header nào do client tự khai báo.
 axiosClient.interceptors.request.use(
   (config) => {
-    // Chỉ chạy ở phía client (browser)
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("auth_token");
       if (token) {
         config.headers["Authorization"] = `Bearer ${token}`;
-        try {
-          const decoded = jwtDecode<any>(token);
-          let rawRole = decoded.role || decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"];
-          if (rawRole) {
-            if (Array.isArray(rawRole)) rawRole = rawRole[0];
-            // Map backend role to the value the API expects in X-User-Role header
-            const roleMap: Record<string, string> = {
-              "Admin": "SYSTEM_ADMIN",
-              "admin": "SYSTEM_ADMIN",
-              "Administrator": "SYSTEM_ADMIN",
-            };
-            config.headers["X-User-Role"] = roleMap[rawRole as string] || rawRole;
-          }
-        } catch (e) {
-          console.error("Error decoding JWT:", e);
-        }
       }
     }
     return config;

@@ -13,11 +13,31 @@ import remarkGfm from "remark-gfm";
 import { useAppSelector } from "@/application/hooks/reduxHooks";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { variantAPI } from "@/infrastructure/api/storefrontAPI";
+import { cartAPI, variantAPI } from "@/infrastructure/api/storefrontAPI";
 import { Button } from "@/components/ui/button";
+import { useNotification } from "@/lib/contexts/NotificationContext";
 
 // --- Markdown Text Renderer ---
-function MarkdownText({ text, onImageClick }: { text: string, onImageClick?: (src: string, alt: string) => void }) {
+function getAddToCartSku(href?: string): string | null {
+  if (!href) return null;
+
+  // AI responses use /#/add-to-cart/<SKU>. Also accept a relative hash link
+  // so that the link format stays usable if the chatbot response changes.
+  const match = href.match(/(?:^|#)\/?add-to-cart\/([^/?#]+)$/i);
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function MarkdownText({ text, onImageClick, onAddToCart }: {
+  text: string;
+  onImageClick?: (src: string, alt: string) => void;
+  onAddToCart?: (sku: string) => void;
+}) {
   // Tiền xử lý text: 
   // 1. Chuyển đổi literal \n thành thực tế
   let processedText = text.replace(/\\n/g, '\n');
@@ -34,14 +54,32 @@ function MarkdownText({ text, onImageClick }: { text: string, onImageClick?: (sr
         remarkPlugins={[remarkGfm]}
       components={{
         p: ({ node, ...props }) => <p className="mb-2 last:mb-0 leading-relaxed" {...props} />,
-        a: ({ node, ...props }) => (
-          <a
-            className="font-semibold text-[#1c362b] underline decoration-[#A8E6CF] decoration-2 underline-offset-2 hover:text-[#4a8a70] transition-colors"
-            target="_blank"
-            rel="noopener noreferrer"
-            {...props}
-          />
-        ),
+        a: ({ node, href, children, ...props }) => {
+          const sku = getAddToCartSku(href);
+          if (sku && onAddToCart) {
+            return (
+              <button
+                type="button"
+                onClick={() => onAddToCart(sku)}
+                className="font-semibold text-[#1c362b] underline decoration-[#A8E6CF] decoration-2 underline-offset-2 hover:text-[#4a8a70] transition-colors"
+              >
+                {children}
+              </button>
+            );
+          }
+
+          return (
+            <a
+              className="font-semibold text-[#1c362b] underline decoration-[#A8E6CF] decoration-2 underline-offset-2 hover:text-[#4a8a70] transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+              href={href}
+              {...props}
+            >
+              {children}
+            </a>
+          );
+        },
         img: ({ node, ...props }) => (
           <img
             className="my-2 max-w-full max-h-64 rounded-lg border border-border shadow-sm object-contain bg-white/50 cursor-pointer hover:opacity-90 transition-opacity"
@@ -75,7 +113,7 @@ function MarkdownText({ text, onImageClick }: { text: string, onImageClick?: (sr
 }
 
 // --- Streaming Markdown Component ---
-function StreamingMarkdown({ text, isStreaming = false, onComplete, onImageClick }: { text: string, isStreaming?: boolean, onComplete?: () => void, onImageClick?: (src: string, alt: string) => void }) {
+function StreamingMarkdown({ text, isStreaming = false, onComplete, onImageClick, onAddToCart }: { text: string, isStreaming?: boolean, onComplete?: () => void, onImageClick?: (src: string, alt: string) => void, onAddToCart?: (sku: string) => void }) {
   const [displayedText, setDisplayedText] = useState(isStreaming ? "" : text);
   
   useEffect(() => {
@@ -100,7 +138,7 @@ function StreamingMarkdown({ text, isStreaming = false, onComplete, onImageClick
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, isStreaming]);
 
-  return <MarkdownText text={displayedText} onImageClick={onImageClick} />;
+  return <MarkdownText text={displayedText} onImageClick={onImageClick} onAddToCart={onAddToCart} />;
 }
 
 // Helper kiểm tra người gửi
@@ -111,6 +149,7 @@ const isUserMessage = (senderType?: string) => senderType?.toLowerCase() === "us
 // --- Main Chatbot Component ---
 export function FloatingChatbot() {
   const router = useRouter();
+  const { showNotification } = useNotification();
   const [isOpen, setIsOpen] = useState(false);
   
   // States
@@ -312,6 +351,34 @@ export function FloatingChatbot() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleAddToCart = async (sku: string) => {
+    if (!isAuthenticated) {
+      showNotification("info", "Vui lòng đăng nhập", "Đăng nhập để thêm sản phẩm vào giỏ hàng.");
+      router.push("/login");
+      return;
+    }
+
+    try {
+      const variant = await variantAPI.findBySku(sku);
+      if (!variant) {
+        showNotification("error", "Không tìm thấy sản phẩm", `Mã sản phẩm ${sku} không còn tồn tại.`);
+        return;
+      }
+
+      if (variant.stockQuantity < 1) {
+        showNotification("warning", "Sản phẩm đã hết hàng", `${variant.productName} hiện chưa thể thêm vào giỏ.`);
+        return;
+      }
+
+      await cartAPI.addToCart({ productVariantId: variant.id, quantity: 1 });
+      window.dispatchEvent(new Event("cartUpdated"));
+      showNotification("success", "Đã thêm vào giỏ", `${variant.productName} – ${variant.variantName}`);
+    } catch (error) {
+      console.error("Không thể thêm sản phẩm từ AI vào giỏ hàng:", error);
+      showNotification("error", "Không thể thêm vào giỏ", "Vui lòng thử lại sau ít phút.");
     }
   };
 
@@ -597,6 +664,7 @@ export function FloatingChatbot() {
                             text={msg.content} 
                             isStreaming={msg.isNewStreaming} 
                             onImageClick={handleImageClick}
+                            onAddToCart={handleAddToCart}
                             onComplete={() => {
                               setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, isNewStreaming: false } : m))
                             }} 

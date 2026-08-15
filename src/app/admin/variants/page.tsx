@@ -151,8 +151,16 @@ export default function VariantsManagementPage() {
     if (!variantForm.productId || !variantForm.variantName) return;
     try {
       setIsSubmitting(true);
-      const payload = {
+      const createPayload = {
         productId: parseInt(variantForm.productId),
+        variantName: variantForm.variantName,
+        price: parseFloat(variantForm.price) || 0,
+        stockQuantity: parseInt(variantForm.stockQuantity) || 0,
+        sku: variantForm.sku,
+        weightGrams: parseInt(variantForm.weightGrams) || 0
+      };
+
+      const updatePayload = {
         variantName: variantForm.variantName,
         price: parseFloat(variantForm.price) || 0,
         stockQuantity: parseInt(variantForm.stockQuantity) || 0,
@@ -166,7 +174,7 @@ export default function VariantsManagementPage() {
 
       if (editingVariantId) {
         try {
-          await adminAPI.updateVariant(editingVariantId, payload);
+          await adminAPI.updateVariant(editingVariantId, updatePayload);
           showNotification("success", "Thành công", "Đã cập nhật thông tin biến thể.");
         } catch (err: any) {
           hasUpdateError = true;
@@ -174,7 +182,7 @@ export default function VariantsManagementPage() {
           console.warn("Lỗi khi updateVariant (Backend Bug):", err.message);
         }
       } else {
-        const res = await adminAPI.createVariant(payload, variantForm.valueIds);
+        const res = await adminAPI.createVariant(createPayload, variantForm.valueIds);
         variantId = res.data?.id || res.id || res;
         showNotification("success", "Thành công", "Đã tạo biến thể mới.");
       }

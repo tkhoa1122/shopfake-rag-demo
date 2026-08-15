@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { Search, ShoppingBag, Menu, User, LogOut, UserCircle, ChevronDown } from "lucide-react";
+import { Search, ShoppingBag, Menu, User, LogOut, UserCircle, ChevronDown, Package } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/application/hooks/reduxHooks";
 import { logout } from "@/application/slices/userSlice";
 import { authAPI } from "@/infrastructure/api/authAPI";
@@ -219,6 +219,16 @@ function UserDropdown({ tenantId, displayName, onLogout }: UserDropdownProps) {
             >
               <UserCircle className="h-4 w-4 shrink-0" />
               Hồ sơ của tôi
+            </Link>
+
+            <Link
+              href={`/orders`}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#2c5243]/5 hover:text-[#2c5243] transition-colors"
+            >
+              <Package className="h-4 w-4 shrink-0" />
+              Đơn hàng của tôi
             </Link>
 
             <div className="mx-3 my-1 border-t border-gray-100" />

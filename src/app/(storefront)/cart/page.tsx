@@ -11,9 +11,10 @@ import {
   Plus,
   ShieldCheck,
   CheckCircle2,
-  Package
+  Package,
+  Loader2
 } from "lucide-react";
-import { cartAPI } from "@/infrastructure/api/storefrontAPI";
+import { cartAPI, paymentAPI, imageAPI } from "@/infrastructure/api/storefrontAPI";
 import type { CartItemResponse } from "@/types/api";
 import { authAPI } from "@/infrastructure/api/authAPI";
 
@@ -25,12 +26,36 @@ export default function CartPage() {
   const tenantId = params.tenant_id as string;
   const [cartItems, setCartItems] = useState<(CartItemResponse & { imageUrl?: string })[]>([]);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const loadCart = async () => {
     try {
       const res = await cartAPI.getCartItems({ pageIndex: 1, pageSize: 100 });
-      if (res.data?.items) {
-        setCartItems(res.data.items);
+      const items: CartItemResponse[] = res.data?.items || [];
+      if (items.length === 0) {
+        setCartItems([]);
+        return;
+      }
+
+      // Fetch images và map vào cart items theo variantId
+      try {
+        const imgRes = await imageAPI.getAll({ pageIndex: 1, pageSize: 500 });
+        const images = imgRes.data?.items || [];
+        // Build map variantId -> imageUrl (lấy ảnh đầu tiên của mỗi variant)
+        const imageMap = new Map<number, string>();
+        images.forEach((img) => {
+          if (img.variantId && img.imageUrl && !imageMap.has(img.variantId)) {
+            imageMap.set(img.variantId, img.imageUrl);
+          }
+        });
+        setCartItems(items.map((item) => ({
+          ...item,
+          imageUrl: imageMap.get(item.productVariantId) || undefined,
+        })));
+      } catch {
+        // Nếu fetch ảnh thất bại, vẫn hiện giỏ hàng bình thường (không có ảnh)
+        setCartItems(items);
       }
     } catch (error) {
       console.error("Failed to load cart", error);
@@ -69,14 +94,53 @@ export default function CartPage() {
     }
   };
 
-  const handleCheckout = (e: React.FormEvent) => {
+  const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate API Call for Checkout
-    setTimeout(() => {
-      setCartItems([]);
-      window.dispatchEvent(new Event("cartUpdated"));
-      setIsOrderSuccess(true);
-    }, 1000);
+    setCheckoutError(null);
+    const form = e.target as HTMLFormElement;
+    const receiverName = (form.querySelector('#fullname') as HTMLInputElement)?.value || '';
+    const receiverPhone = (form.querySelector('#phone') as HTMLInputElement)?.value || '';
+    const shippingAddress = (form.querySelector('#address') as HTMLInputElement)?.value || '';
+
+    if (!receiverName || !receiverPhone || !shippingAddress) {
+      setCheckoutError('Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ.');
+      return;
+    }
+
+    try {
+      setIsCheckingOut(true);
+      const origin = window.location.origin;
+      const res = await paymentAPI.checkout({
+        receiverName,
+        receiverPhone,
+        shippingAddress,
+        returnUrl: `${origin}/payment-result`,
+        cancelUrl: `${origin}/payment-result`,
+      });
+
+      // Backend trả về payment URL của PayOS
+      const paymentUrl =
+        res?.data?.paymentUrl ||
+        res?.data?.checkoutUrl ||
+        res?.paymentUrl ||
+        res?.checkoutUrl ||
+        null;
+
+      if (paymentUrl) {
+        // Redirect sang trang thanh toán PayOS
+        window.location.href = paymentUrl;
+      } else {
+        // Nếu backend không dùng PayOS (tạo đơn trực tiếp thành công)
+        window.dispatchEvent(new Event('cartUpdated'));
+        setCartItems([]);
+        setIsOrderSuccess(true);
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Đặt hàng thất bại. Vui lòng thử lại.';
+      setCheckoutError(msg);
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   // ── Tổng tiền ─────────────────────────────────────────────────────────────
@@ -244,12 +308,20 @@ export default function CartPage() {
                     </span>
                   </div>
 
+                  {checkoutError && (
+                    <p className="text-sm text-red-500 text-center bg-red-50 rounded-sm px-3 py-2">{checkoutError}</p>
+                  )}
                   <button
                     type="submit"
                     form="checkout-form"
-                    className="mt-6 w-full rounded-sm bg-[#2c5243] py-4 text-sm font-bold text-white hover:bg-[#1c362b] transition-all uppercase tracking-widest shadow-md hover:shadow-lg"
+                    disabled={isCheckingOut}
+                    className="mt-6 w-full rounded-sm bg-[#2c5243] py-4 text-sm font-bold text-white hover:bg-[#1c362b] transition-all uppercase tracking-widest shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    ĐẶT HÀNG
+                    {isCheckingOut ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Đang xử lý...</>
+                    ) : (
+                      'ĐẶT HÀNG'
+                    )}
                   </button>
                 </div>
               </div>
