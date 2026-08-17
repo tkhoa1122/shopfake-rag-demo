@@ -167,6 +167,7 @@ export interface CartItemResponse {
   quantity: number;
   conversationId?: string | null;
   source?: "Product" | "Chat" | string;
+  addToCartSource?: "Product" | "Chat" | string;
 }
 
 // ============================================================================

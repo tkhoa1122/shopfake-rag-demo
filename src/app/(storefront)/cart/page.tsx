@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   Package,
-  Loader2
+  Loader2,
+  Sparkles,
+  ShoppingBag,
 } from "lucide-react";
 import { cartAPI, paymentAPI, imageAPI } from "@/infrastructure/api/storefrontAPI";
 import type { CartItemResponse } from "@/types/api";
@@ -263,6 +265,25 @@ export default function CartPage() {
                             </button>
                           </div>
                           <p className="mt-1 text-xs text-gray-500 uppercase">{item.variantName}</p>
+                          <div className="mt-1.5 flex items-center">
+                            {(() => {
+                              const isFromChat =
+                                item.source?.toLowerCase() === "chat" ||
+                                item.addToCartSource?.toLowerCase() === "chat" ||
+                                Boolean(item.conversationId);
+                              return isFromChat ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs">
+                                  <Sparkles className="h-3 w-3 text-purple-600 shrink-0" />
+                                  Thêm từ Chat AI
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                  <ShoppingBag className="h-3 w-3 text-slate-500 shrink-0" />
+                                  Thêm từ Sản phẩm
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </div>
                         
                         <div className="flex items-center justify-between mt-auto">
