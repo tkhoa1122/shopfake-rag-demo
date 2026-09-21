@@ -23,7 +23,7 @@
  * ─── Attr mới: Kiểu dáng ───     (sẽ tạo value: Snapback, Bucket, Tote, Crossbody)
  */
 
-const BASE = "https://shoppe-fake-427087851138.asia-southeast1.run.app/api/v1";
+const BASE = "https://shoppefake-545163055657.asia-southeast1.run.app/api/v1";
 
 // ─── Helper Functions ───────────────────────────────────────────────────────
 

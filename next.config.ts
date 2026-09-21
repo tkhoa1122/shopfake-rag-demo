@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const API_DOMAIN = "shoppe-fake-427087851138.asia-southeast1.run.app";
+const API_DOMAIN = "shoppefake-545163055657.asia-southeast1.run.app";
 
 const nextConfig: NextConfig = {
   async headers() {

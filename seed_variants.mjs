@@ -18,7 +18,7 @@
  *   19=28, 20=29, 21=30, 22=31, 23=32, 24=34, 25=36, 26=37, 27=38, 28=39, 29=40, 30=42
  */
 
-const BASE = "https://shoppe-fake-427087851138.asia-southeast1.run.app/api/v1";
+const BASE = "https://shoppefake-545163055657.asia-southeast1.run.app/api/v1";
 
 // ─── 26 sản phẩm × 2 biến thể ─────────────────────────────────────────────
 // Mỗi entry: { productId, variantName, price, stockQuantity, sku, weightGrams, valueIds }

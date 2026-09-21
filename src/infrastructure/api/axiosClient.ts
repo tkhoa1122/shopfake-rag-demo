@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Base URL của Backend API
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://shoppe-fake-427087851138.asia-southeast1.run.app/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "https://shoppefake-545163055657.asia-southeast1.run.app/api/v1";
 
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,

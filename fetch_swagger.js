@@ -1,4 +1,4 @@
-fetch('https://shoppe-fake-427087851138.asia-southeast1.run.app/swagger/v1/swagger.json')
+fetch('https://shoppefake-545163055657.asia-southeast1.run.app/swagger/v1/swagger.json')
   .then(res => res.json())
   .then(data => {
      require('fs').writeFileSync('swagger.json', JSON.stringify(data, null, 2));
