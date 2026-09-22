@@ -97,15 +97,22 @@ export default function ProductsManagementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.categoryId || !formData.name) return;
+    if (!formData.name?.trim()) {
+      showNotification("warning", "Thiếu thông tin", "Vui lòng nhập tên sản phẩm.");
+      return;
+    }
+    if (!formData.categoryId) {
+      showNotification("warning", "Thiếu thông tin", "Vui lòng chọn danh mục cho sản phẩm.");
+      return;
+    }
     try {
       setIsSubmitting(true);
       const payload = {
         categoryId: parseInt(formData.categoryId),
-        name: formData.name,
-        brand: formData.brand,
-        description: formData.description,
-        slug: formData.slug || formData.name.toLowerCase().replace(/ /g, '-'),
+        name: formData.name.trim(),
+        brand: formData.brand?.trim() || "",
+        description: formData.description?.trim() || "",
+        slug: formData.slug?.trim() || formData.name.trim().toLowerCase().replace(/ /g, '-'),
       };
 
       let productId = editingId;
@@ -118,7 +125,6 @@ export default function ProductsManagementPage() {
         showNotification("success", "Thành công", "Đã tạo sản phẩm mới.");
       }
 
-      
       handleCloseModal();
       fetchProducts();
     } catch (err: any) {
@@ -132,10 +138,31 @@ export default function ProductsManagementPage() {
     try {
       setIsLoading(true);
       // Fetch full details before editing
-      const res = await adminAPI.getProductById(product.id);
-      const p = res.data || res;
+      let p = product;
+      try {
+        const res = await adminAPI.getProductById(product.id);
+        p = res.data || res || product;
+      } catch {
+        p = product;
+      }
+
+      // Robust category ID resolution
+      let resolvedCatId =
+        p.categoryId?.toString() ||
+        p.category?.id?.toString() ||
+        product.categoryId?.toString() ||
+        "";
+
+      if (!resolvedCatId && (p.categoryName || product.categoryName)) {
+        const catName = (p.categoryName || product.categoryName || "").trim().toLowerCase();
+        const matched = categories.find((c) => c.name?.trim().toLowerCase() === catName);
+        if (matched) {
+          resolvedCatId = String(matched.id);
+        }
+      }
+
       setFormData({
-        categoryId: p.categoryId?.toString() || p.category?.id?.toString() || "",
+        categoryId: resolvedCatId,
         name: p.name || "",
         brand: p.brand || "",
         description: p.description || "",
@@ -347,8 +374,8 @@ export default function ProductsManagementPage() {
                       </div>
                     )}
                   </div>
-                  {/* Hidden input for form validation */}
-                  <input type="hidden" required value={formData.categoryId} />
+                  {/* Hidden input for form state */}
+                  <input type="hidden" value={formData.categoryId} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Thương hiệu</label>

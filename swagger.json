@@ -399,6 +399,15 @@
         ],
         "summary": "Customer - Create a new cart item",
         "description": "Adds a new item to the shopping cart.",
+        "parameters": [
+          {
+            "name": "addToCartSource",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ShoppeFake.Domain.Enums.AddToCartSource"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -496,7 +505,7 @@
         "tags": [
           "CartItem"
         ],
-        "summary": "Customer - Delete own cart item",
+        "summary": "Customer - Delete specific item in cart by Id",
         "description": "Removes a specific item from the shopping cart.",
         "parameters": [
           {
@@ -989,6 +998,123 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/orders": {
+      "get": {
+        "tags": [
+          "Order"
+        ],
+        "parameters": [
+          {
+            "name": "pageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/payments": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.CheckoutPaymentRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.CheckoutPaymentRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.CheckoutPaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/callback": {
+      "post": {
+        "tags": [
+          "Payment"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/products": {
       "post": {
         "tags": [
@@ -1213,6 +1339,13 @@
               "format": "int32",
               "default": 10
             }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1304,17 +1437,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantRequest"
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantUpdateRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantRequest"
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantUpdateRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantRequest"
+                "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.VariantDtos.VariantUpdateRequest"
               }
             }
           }
@@ -1385,6 +1518,10 @@
           "quantity": {
             "type": "integer",
             "format": "int32"
+          },
+          "conversationId": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -1429,6 +1566,126 @@
             "format": "int32"
           },
           "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ShoppeFake.Application.DTOs.PaymentDtos.CheckoutPaymentRequest": {
+        "type": "object",
+        "properties": {
+          "receiverName": {
+            "type": "string",
+            "nullable": true
+          },
+          "receiverPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "shippingAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "returnUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancelUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookData": {
+        "type": "object",
+        "properties": {
+          "orderCode": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "amount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "transactionDateTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "accountNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "reference": {
+            "type": "string",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentLinkId": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "desc": {
+            "type": "string",
+            "nullable": true
+          },
+          "counterAccountBankId": {
+            "type": "string",
+            "nullable": true
+          },
+          "counterAccountBankName": {
+            "type": "string",
+            "nullable": true
+          },
+          "counterAccountName": {
+            "type": "string",
+            "nullable": true
+          },
+          "counterAccountNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "virtualAccountName": {
+            "type": "string",
+            "nullable": true
+          },
+          "virtualAccountNumber": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "desc": {
+            "type": "string",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ShoppeFake.Application.DTOs.PaymentDtos.PayOSWebhookData"
+          },
+          "signature": {
             "type": "string",
             "nullable": true
           }
@@ -1508,6 +1765,39 @@
           }
         },
         "additionalProperties": false
+      },
+      "ShoppeFake.Application.DTOs.VariantDtos.VariantUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "variantName": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          },
+          "stockQuantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "weightGrams": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ShoppeFake.Domain.Enums.AddToCartSource": {
+        "enum": [
+          "Product",
+          "Chat"
+        ],
+        "type": "string"
       }
     },
     "securitySchemes": {
