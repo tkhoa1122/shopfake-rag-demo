@@ -151,67 +151,55 @@ export default function VariantsManagementPage() {
     if (!variantForm.productId || !variantForm.variantName) return;
     try {
       setIsSubmitting(true);
-      const createPayload = {
-        productId: parseInt(variantForm.productId),
-        variantName: variantForm.variantName,
-        price: parseFloat(variantForm.price) || 0,
-        stockQuantity: parseInt(variantForm.stockQuantity) || 0,
-        sku: variantForm.sku,
-        weightGrams: parseInt(variantForm.weightGrams) || 0
-      };
-
-      const updatePayload = {
-        variantName: variantForm.variantName,
-        price: parseFloat(variantForm.price) || 0,
-        stockQuantity: parseInt(variantForm.stockQuantity) || 0,
-        sku: variantForm.sku,
-        weightGrams: parseInt(variantForm.weightGrams) || 0
-      };
-
-      let variantId = editingVariantId;
-      let hasUpdateError = false;
-      let updateErrMsg = "";
 
       if (editingVariantId) {
-        try {
-          await adminAPI.updateVariant(editingVariantId, updatePayload);
-          showNotification("success", "Thành công", "Đã cập nhật thông tin biến thể.");
-        } catch (err: any) {
-          hasUpdateError = true;
-          updateErrMsg = err.response?.data?.message || err.message || "Lỗi Server 500";
-          console.warn("Lỗi khi updateVariant (Backend Bug):", err.message);
+        // Backend PUT /api/v1/variants/{id} nhận multipart/form-data
+        const updateFormData = new FormData();
+        if (selectedFile) {
+          updateFormData.append("NewImage", selectedFile);
         }
+        updateFormData.append("VariantName", variantForm.variantName);
+        updateFormData.append("Price", (parseFloat(variantForm.price) || 0).toString());
+        updateFormData.append("StockQuantity", (parseInt(variantForm.stockQuantity) || 0).toString());
+        updateFormData.append("Sku", variantForm.sku || "");
+        updateFormData.append("WeightGrams", (parseInt(variantForm.weightGrams) || 0).toString());
+
+        await adminAPI.updateVariant(editingVariantId, updateFormData);
+        showNotification("success", "Thành công", "Đã cập nhật biến thể thành công.");
       } else {
+        // Backend POST /api/v1/variants nhận application/json
+        const createPayload = {
+          productId: parseInt(variantForm.productId),
+          variantName: variantForm.variantName,
+          price: parseFloat(variantForm.price) || 0,
+          stockQuantity: parseInt(variantForm.stockQuantity) || 0,
+          sku: variantForm.sku,
+          weightGrams: parseInt(variantForm.weightGrams) || 0
+        };
+
         const res = await adminAPI.createVariant(createPayload, variantForm.valueIds);
-        variantId = res.data?.id || res.id || res;
+        const variantId = res.data?.id || res.id || res;
         showNotification("success", "Thành công", "Đã tạo biến thể mới.");
-      }
 
-      // Upload image if selected
-      if (selectedFile && variantId) {
-        try {
-          setIsUploading(true);
-          await adminAPI.uploadImage(selectedFile, parseInt(variantForm.productId), Number(variantId));
-          showNotification("success", "Thành công", "Đã lưu hình ảnh biến thể.");
-        } catch (imgErr) {
-          showNotification("error", "Lỗi upload ảnh", "Không thể lưu hình ảnh.");
-        } finally {
-          setIsUploading(false);
+        // Upload image cho biến thể mới qua /images/upload nếu có chọn file
+        if (selectedFile && variantId) {
+          try {
+            setIsUploading(true);
+            await adminAPI.uploadImage(selectedFile, parseInt(variantForm.productId), Number(variantId));
+            showNotification("success", "Thành công", "Đã lưu hình ảnh biến thể.");
+          } catch (imgErr) {
+            showNotification("warning", "Cảnh báo ảnh", "Biến thể đã tạo nhưng tải ảnh thất bại.");
+          } finally {
+            setIsUploading(false);
+          }
         }
-      }
-
-      if (hasUpdateError && !selectedFile) {
-        // Chỉ hiện lỗi update nếu không có upload ảnh (hoặc hiện cả hai)
-        showNotification("error", "Lỗi Cập nhật (Backend)", "Server từ chối cập nhật thông tin chữ: " + updateErrMsg);
-      } else if (hasUpdateError && selectedFile) {
-        showNotification("warning", "Thành công một phần", "Đã lưu ảnh, nhưng Server bị lỗi khi cập nhật thông tin chữ (Backend Error 500).");
       }
 
       handleCloseVariantModal();
       fetchData();
     } catch (err: any) {
       console.error("Variant submit error:", err);
-      showNotification("error", "Lỗi", err.response?.data?.message || "Không thể lưu biến thể");
+      showNotification("error", "Lỗi", err.response?.data?.message || err.message || "Không thể lưu biến thể");
     } finally {
       setIsSubmitting(false);
     }
@@ -221,6 +209,28 @@ export default function VariantsManagementPage() {
     try {
       setIsLoading(true);
       const v = variant;
+
+      // Trích xuất link ảnh hiện có (có thể là mảng imageUrl hoặc chuỗi)
+      const currentImg = Array.isArray(v.imageUrl)
+        ? (v.imageUrl[0] || "")
+        : (typeof v.imageUrl === "string" ? v.imageUrl : "");
+
+      // Lấy danh sách valueIds đã chọn
+      let selectedValueIds: number[] = [];
+      if (Array.isArray(v.variantAttributeValues) && v.variantAttributeValues.length > 0) {
+        selectedValueIds = v.variantAttributeValues.map((x: any) => x.attributeValueId || x.id).filter(Boolean);
+      } else if (Array.isArray(v.variantAttributes)) {
+        v.variantAttributes.forEach((attr: any) => {
+          (attr.values || []).forEach((val: any) => {
+            const matched = attributeValues.find(
+              av => (av.attributeId === attr.attributeId || av.attribute?.id === attr.attributeId) &&
+                    (av.valueText?.toLowerCase() === val.valueText?.toLowerCase() || av.slug === val.slug)
+            );
+            if (matched?.id) selectedValueIds.push(matched.id);
+          });
+        });
+      }
+
       setVariantForm({
         productId: v.productId?.toString() || v.product?.id?.toString() || "",
         variantName: v.variantName || v.name || "",
@@ -228,9 +238,10 @@ export default function VariantsManagementPage() {
         stockQuantity: v.stockQuantity?.toString() || "0",
         sku: v.sku || "",
         weightGrams: v.weightGrams?.toString() || "0",
-        imageUrl: v.imageUrl || "",
-        valueIds: v.variantAttributeValues?.map((x: any) => x.attributeValueId) || []
+        imageUrl: currentImg,
+        valueIds: selectedValueIds
       });
+      setSelectedFile(null);
       setEditingVariantId(v.id);
       setIsVariantModalOpen(true);
     } catch (err) {
@@ -414,9 +425,23 @@ export default function VariantsManagementPage() {
                   {paginatedVariants.map(vari => (
                     <tr key={vari.id} className="hover:bg-slate-50/50">
                       <td className="py-3 font-medium text-slate-900">
-                        <div className="flex flex-col gap-1">
-                          <p className="text-sm font-medium text-slate-900 line-clamp-1">{vari.variantName || vari.name}</p>
-                          <p className="text-xs text-slate-500 font-mono">{vari.id ? String(vari.id).substring(0, 8) : "N/A"}</p>
+                        <div className="flex items-center gap-3">
+                          {vari.imageUrl && (Array.isArray(vari.imageUrl) ? vari.imageUrl[0] : vari.imageUrl) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={Array.isArray(vari.imageUrl) ? vari.imageUrl[0] : vari.imageUrl}
+                              alt={vari.variantName || "Variant"}
+                              className="h-10 w-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-xs"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-400 shrink-0 font-medium">
+                              No img
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-0.5">
+                            <p className="text-sm font-medium text-slate-900 line-clamp-1">{vari.variantName || vari.name}</p>
+                            <p className="text-xs text-slate-500 font-mono">SKU: {vari.sku || (vari.id ? String(vari.id).substring(0, 8) : "N/A")}</p>
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 text-slate-600">{vari.product?.name || vari.productId}</td>
@@ -559,24 +584,35 @@ export default function VariantsManagementPage() {
                         disabled={isUploading}
                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors"
                       />
-                      <p className="text-xs text-slate-400 mt-1">Hỗ trợ JPG, PNG, WEBP. Tối đa 5MB.</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Hỗ trợ JPG, PNG, WEBP. Tối đa 5MB. {editingVariantId ? "(Chọn file ảnh mới để thay thế ảnh hiện tại)" : ""}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="col-span-2 relative">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Sản phẩm gốc</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-slate-700">Sản phẩm gốc</label>
+                    {editingVariantId && (
+                      <span className="text-xs text-slate-400 italic">Cố định theo biến thể</span>
+                    )}
+                  </div>
                   <div 
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 bg-white cursor-pointer flex justify-between items-center hover:border-slate-300 transition-colors"
-                    onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+                    className={`w-full px-4 py-2 rounded-xl border border-slate-200 bg-white flex justify-between items-center transition-colors ${editingVariantId ? 'bg-slate-50 cursor-not-allowed opacity-85' : 'cursor-pointer hover:border-slate-300'}`}
+                    onClick={() => {
+                      if (!editingVariantId) setIsProductDropdownOpen(!isProductDropdownOpen);
+                    }}
                   >
-                    <span className={`truncate ${variantForm.productId ? 'text-slate-900' : 'text-slate-400'}`}>
+                    <span className={`truncate ${variantForm.productId ? 'text-slate-900 font-medium' : 'text-slate-400'}`}>
                       {products.find(p => p.id?.toString() === variantForm.productId)?.name || "Chọn sản phẩm..."}
                     </span>
-                    <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
+                    {!editingVariantId && (
+                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${isProductDropdownOpen ? 'rotate-180' : ''}`} />
+                    )}
                   </div>
                   
-                  {isProductDropdownOpen && (
+                  {isProductDropdownOpen && !editingVariantId && (
                     <div className="absolute z-[60] w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-hidden flex flex-col">
                       <div className="p-2 border-b border-slate-100">
                         <div className="relative">
@@ -617,7 +653,12 @@ export default function VariantsManagementPage() {
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Đặc tính (Màu sắc, Kích cỡ...)</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Đặc tính (Màu sắc, Kích cỡ...)</label>
+                    {editingVariantId && (
+                      <span className="text-xs text-slate-400 italic">Cố định theo biến thể đã tạo</span>
+                    )}
+                  </div>
                   <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-4">
                     {attributes.length > 0 ? attributes.map(attr => (
                       <div key={attr.id}>

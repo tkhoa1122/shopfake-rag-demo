@@ -119,8 +119,36 @@ export const adminAPI = {
     });
     return data;
   },
-  updateVariant: async (id: string | number, payload: any) => {
-    const { data } = await axiosClient.put(`/variants/${id}`, payload);
+  updateVariant: async (id: string | number, payload: FormData | any) => {
+    let body = payload;
+    const headers: Record<string, string> = {
+      "Content-Type": "multipart/form-data"
+    };
+
+    if (!(payload instanceof FormData)) {
+      const fd = new FormData();
+      if (payload.newImage || payload.NewImage) {
+        fd.append("NewImage", payload.newImage || payload.NewImage);
+      }
+      if (payload.variantName !== undefined || payload.VariantName !== undefined) {
+        fd.append("VariantName", payload.variantName ?? payload.VariantName ?? "");
+      }
+      if (payload.price !== undefined || payload.Price !== undefined) {
+        fd.append("Price", String(payload.price ?? payload.Price ?? 0));
+      }
+      if (payload.stockQuantity !== undefined || payload.StockQuantity !== undefined) {
+        fd.append("StockQuantity", String(payload.stockQuantity ?? payload.StockQuantity ?? 0));
+      }
+      if (payload.sku !== undefined || payload.Sku !== undefined) {
+        fd.append("Sku", String(payload.sku ?? payload.Sku ?? ""));
+      }
+      if (payload.weightGrams !== undefined || payload.WeightGrams !== undefined) {
+        fd.append("WeightGrams", String(payload.weightGrams ?? payload.WeightGrams ?? 0));
+      }
+      body = fd;
+    }
+
+    const { data } = await axiosClient.put(`/variants/${id}`, body, { headers });
     return data;
   },
   deleteVariant: async (id: string | number) => {
