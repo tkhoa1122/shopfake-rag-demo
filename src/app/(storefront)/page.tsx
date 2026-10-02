@@ -46,19 +46,11 @@ function StorefrontContent() {
     setError(null);
 
     try {
-      const [productsRes, categoriesRes, variantsRes] = await Promise.all([
-        productAPI.getAll({ pageIndex: 1, pageSize: 200 }),
-        categoryAPI.getAll({ pageIndex: 1, pageSize: 100 }),
-        variantAPI.getAll({
-          pageIndex: 1,
-          pageSize: 500,
-          orderBy: orderBy || undefined,
-        }),
+      const [rawProducts, rawCategories, rawVariants] = await Promise.all([
+        productAPI.getAllFull(100),
+        categoryAPI.getAllFull(100),
+        variantAPI.getAllFull(200, orderBy || undefined),
       ]);
-
-      const rawProducts: ProductResponse[] = productsRes.data?.items ?? [];
-      const rawCategories: CategoryResponse[] = categoriesRes.data?.items ?? [];
-      const rawVariants: VariantResponse[] = variantsRes.data?.items ?? [];
 
       setCategories(rawCategories);
 
@@ -110,7 +102,7 @@ function StorefrontContent() {
   const filteredProducts = products.filter((p) => {
     const matchCategory =
       selectedCategory === null ||
-      categories.find((c) => c.id === selectedCategory)?.name === p.categoryName;
+      categories.find((c) => c.id === selectedCategory)?.name?.trim().toLowerCase() === p.categoryName?.trim().toLowerCase();
     const matchSearch =
       searchQuery === "" ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

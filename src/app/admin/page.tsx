@@ -95,7 +95,7 @@ export default function AdminDashboardOverview() {
       if (accRes.status === "fulfilled") {
         const res = accRes.value;
         const items = res.data?.items || res.items || (Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
-        const count = res.data?.totalCount ?? res.totalCount ?? items.length;
+        const count = res.data?.totalItems ?? res.data?.totalCount ?? res.totalCount ?? items.length;
         setTotalUsers(count);
       } else {
         setTotalUsers(0);
@@ -105,7 +105,7 @@ export default function AdminDashboardOverview() {
       if (prodRes.status === "fulfilled") {
         const res = prodRes.value;
         const items = res.data?.items || res.items || (Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
-        const count = res.data?.totalCount ?? res.totalCount ?? items.length;
+        const count = res.data?.totalItems ?? res.data?.totalCount ?? res.totalCount ?? items.length;
         setTotalProducts(count);
       } else {
         setTotalProducts(0);
@@ -115,7 +115,7 @@ export default function AdminDashboardOverview() {
       if (catRes.status === "fulfilled") {
         const res = catRes.value;
         const items = res.data?.items || res.items || (Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
-        const count = res.data?.totalCount ?? res.totalCount ?? items.length;
+        const count = res.data?.totalItems ?? res.data?.totalCount ?? res.totalCount ?? items.length;
         setTotalCategories(count);
       } else {
         setTotalCategories(0);
@@ -125,7 +125,7 @@ export default function AdminDashboardOverview() {
       if (varRes.status === "fulfilled") {
         const res = varRes.value;
         const items = res.data?.items || res.items || (Array.isArray(res.data) ? res.data : Array.isArray(res) ? res : []);
-        const count = res.data?.totalCount ?? res.totalCount ?? items.length;
+        const count = res.data?.totalItems ?? res.data?.totalCount ?? res.totalCount ?? items.length;
         setTotalVariants(count);
       } else {
         setTotalVariants(0);

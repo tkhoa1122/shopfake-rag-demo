@@ -48,11 +48,11 @@ export default function VariantsManagementPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [attrRes, valRes, varRes, prodRes] = await Promise.all([
+      const [attrRes, valRes, varItems, prodItems] = await Promise.all([
         adminAPI.getAttributes({ pageSize: 500 }),
         adminAPI.getAttributeValues({ pageSize: 500 }),
-        adminAPI.getVariants({ pageSize: 500 }), // Get up to 500 for client-side pagination
-        adminAPI.getProducts({ pageSize: 500 })
+        adminAPI.getVariantsFull(200),
+        adminAPI.getProductsFull(100)
       ]);
       const attrs = attrRes.data?.items || attrRes.items || attrRes || [];
       setAttributes(Array.isArray(attrs) ? attrs : []);
@@ -60,8 +60,8 @@ export default function VariantsManagementPage() {
       const vals = valRes.data?.items || valRes.items || valRes || [];
       setAttributeValues(Array.isArray(vals) ? vals : []);
       
-      setVariants(varRes.data?.items || varRes.items || varRes || []);
-      setProducts(prodRes.data?.items || prodRes.items || prodRes || []);
+      setVariants(Array.isArray(varItems) ? varItems : []);
+      setProducts(Array.isArray(prodItems) ? prodItems : []);
     } catch (err: any) {
       showNotification("error", "Lỗi", "Không thể tải dữ liệu thuộc tính/biến thể");
     } finally {

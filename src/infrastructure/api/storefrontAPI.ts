@@ -53,6 +53,28 @@ export const productAPI = {
   },
 
   /**
+   * Tự động quét và lấy toàn bộ sản phẩm trên tất cả các trang
+   * Đảm bảo không bao giờ bị giới hạn bởi pageSize khi có thêm sản phẩm mới
+   */
+  getAllFull: async (pageSize = 100): Promise<ProductResponse[]> => {
+    const firstRes = await productAPI.getAll({ pageIndex: 1, pageSize });
+    const items: ProductResponse[] = [...(firstRes.data?.items ?? [])];
+    const totalPages = firstRes.data?.totalPages ?? 1;
+
+    if (totalPages > 1) {
+      const promises = [];
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(productAPI.getAll({ pageIndex: p, pageSize }));
+      }
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        items.push(...(res.data?.items ?? []));
+      }
+    }
+    return items;
+  },
+
+  /**
    * Lấy chi tiết một sản phẩm theo ID
    */
   getById: async (id: number): Promise<ApiResponse<ProductResponse>> => {
@@ -80,6 +102,27 @@ export const categoryAPI = {
     return data;
   },
 
+  /**
+   * Tự động quét và lấy toàn bộ danh mục trên tất cả các trang
+   */
+  getAllFull: async (pageSize = 100): Promise<CategoryResponse[]> => {
+    const firstRes = await categoryAPI.getAll({ pageIndex: 1, pageSize });
+    const items: CategoryResponse[] = [...(firstRes.data?.items ?? [])];
+    const totalPages = firstRes.data?.totalPages ?? 1;
+
+    if (totalPages > 1) {
+      const promises = [];
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(categoryAPI.getAll({ pageIndex: p, pageSize }));
+      }
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        items.push(...(res.data?.items ?? []));
+      }
+    }
+    return items;
+  },
+
   getById: async (id: number): Promise<ApiResponse<CategoryResponse>> => {
     const { data } = await axiosClient.get<ApiResponse<CategoryResponse>>(
       `/categories/${id}`
@@ -104,6 +147,27 @@ export const variantAPI = {
       ApiResponse<BasePaginatedList<VariantResponse>>
     >("/variants", { params });
     return data;
+  },
+
+  /**
+   * Tự động quét và lấy toàn bộ biến thể trên tất cả các trang
+   */
+  getAllFull: async (pageSize = 200, orderBy?: string): Promise<VariantResponse[]> => {
+    const firstRes = await variantAPI.getAll({ pageIndex: 1, pageSize, orderBy });
+    const items: VariantResponse[] = [...(firstRes.data?.items ?? [])];
+    const totalPages = firstRes.data?.totalPages ?? 1;
+
+    if (totalPages > 1) {
+      const promises = [];
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(variantAPI.getAll({ pageIndex: p, pageSize, orderBy }));
+      }
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        items.push(...(res.data?.items ?? []));
+      }
+    }
+    return items;
   },
 
   getById: async (id: number): Promise<ApiResponse<VariantResponse>> => {

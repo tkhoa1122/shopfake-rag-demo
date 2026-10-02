@@ -49,11 +49,10 @@ export default function ProductsManagementPage() {
 
   const fetchProducts = async () => {
     try {
-      const [prodRes, catRes] = await Promise.all([
-        adminAPI.getProducts({ pageIndex: 1, pageSize: 200 }),
+      const [items, catRes] = await Promise.all([
+        adminAPI.getProductsFull(100),
         adminAPI.getCategories(200),
       ]);
-      const items = prodRes.data?.items || prodRes.items || prodRes || [];
       setProducts(Array.isArray(items) ? items : []);
       const cats = catRes.data?.items || catRes.items || catRes || [];
       setCategories(Array.isArray(cats) ? cats : []);

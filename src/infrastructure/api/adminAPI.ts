@@ -54,6 +54,23 @@ export const adminAPI = {
     const { data } = await axiosClient.get("/products", { params });
     return data;
   },
+  getProductsFull: async (pageSize = 100): Promise<any[]> => {
+    const firstRes = await adminAPI.getProducts({ pageIndex: 1, pageSize });
+    const items = [...(firstRes.data?.items ?? firstRes.items ?? [])];
+    const totalPages = firstRes.data?.totalPages ?? firstRes.totalPages ?? 1;
+
+    if (totalPages > 1) {
+      const promises = [];
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(adminAPI.getProducts({ pageIndex: p, pageSize }));
+      }
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        items.push(...(res.data?.items ?? res.items ?? []));
+      }
+    }
+    return items;
+  },
   getProductById: async (id: string | number) => {
     const { data } = await axiosClient.get(`/products/${id}`);
     return data;
@@ -99,6 +116,23 @@ export const adminAPI = {
   getVariants: async (params: any = {}) => {
     const { data } = await axiosClient.get("/variants", { params });
     return data;
+  },
+  getVariantsFull: async (pageSize = 200): Promise<any[]> => {
+    const firstRes = await adminAPI.getVariants({ pageIndex: 1, pageSize });
+    const items = [...(firstRes.data?.items ?? firstRes.items ?? [])];
+    const totalPages = firstRes.data?.totalPages ?? firstRes.totalPages ?? 1;
+
+    if (totalPages > 1) {
+      const promises = [];
+      for (let p = 2; p <= totalPages; p++) {
+        promises.push(adminAPI.getVariants({ pageIndex: p, pageSize }));
+      }
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        items.push(...(res.data?.items ?? res.items ?? []));
+      }
+    }
+    return items;
   },
   createAttribute: async (payload: any) => {
     const { data } = await axiosClient.post("/attributes", payload);
