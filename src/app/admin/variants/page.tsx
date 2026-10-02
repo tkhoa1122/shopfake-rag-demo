@@ -153,18 +153,30 @@ export default function VariantsManagementPage() {
       setIsSubmitting(true);
 
       if (editingVariantId) {
-        // Backend PUT /api/v1/variants/{id} nhận multipart/form-data
-        const updateFormData = new FormData();
-        if (selectedFile) {
-          updateFormData.append("NewImage", selectedFile);
-        }
-        updateFormData.append("VariantName", variantForm.variantName);
-        updateFormData.append("Price", (parseFloat(variantForm.price) || 0).toString());
-        updateFormData.append("StockQuantity", (parseInt(variantForm.stockQuantity) || 0).toString());
-        updateFormData.append("Sku", variantForm.sku || "");
-        updateFormData.append("WeightGrams", (parseInt(variantForm.weightGrams) || 0).toString());
+        // 1. Cập nhật thông tin biến thể qua PUT /api/v1/variants/{id} (application/json)
+        const updatePayload = {
+          variantName: variantForm.variantName,
+          price: parseFloat(variantForm.price) || 0,
+          stockQuantity: parseInt(variantForm.stockQuantity) || 0,
+          sku: variantForm.sku,
+          weightGrams: parseInt(variantForm.weightGrams) || 0
+        };
 
-        await adminAPI.updateVariant(editingVariantId, updateFormData);
+        await adminAPI.updateVariant(editingVariantId, updatePayload);
+
+        // 2. Cập nhật ảnh biến thể qua PUT /api/v1/images/variant/{variantId} nếu có chọn file mới
+        if (selectedFile) {
+          try {
+            setIsUploading(true);
+            await adminAPI.updateVariantImage(editingVariantId, selectedFile, variantForm.productId);
+          } catch (imgErr: any) {
+            console.warn("Lỗi khi cập nhật ảnh biến thể:", imgErr);
+            showNotification("warning", "Cảnh báo ảnh", "Thông tin đã lưu nhưng không thể cập nhật ảnh mới.");
+          } finally {
+            setIsUploading(false);
+          }
+        }
+
         showNotification("success", "Thành công", "Đã cập nhật biến thể thành công.");
       } else {
         // Backend POST /api/v1/variants nhận application/json

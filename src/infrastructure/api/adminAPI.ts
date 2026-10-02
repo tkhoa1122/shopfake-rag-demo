@@ -119,36 +119,33 @@ export const adminAPI = {
     });
     return data;
   },
-  updateVariant: async (id: string | number, payload: FormData | any) => {
-    let body = payload;
-    const headers: Record<string, string> = {
-      "Content-Type": "multipart/form-data"
+  updateVariant: async (id: string | number, payload: any) => {
+    // Backend API: PUT /api/v1/variants/{id} nhận application/json (VariantUpdateRequest)
+    const jsonPayload = {
+      variantName: payload.variantName ?? payload.VariantName ?? "",
+      price: Number(payload.price ?? payload.Price ?? 0),
+      stockQuantity: Number(payload.stockQuantity ?? payload.StockQuantity ?? 0),
+      sku: payload.sku ?? payload.Sku ?? "",
+      weightGrams: Number(payload.weightGrams ?? payload.WeightGrams ?? 0)
     };
+    const { data } = await axiosClient.put(`/variants/${id}`, jsonPayload);
+    return data;
+  },
+  updateVariantImage: async (variantId: number | string, file: File, productId: number | string) => {
+    // Backend API: PUT /api/v1/images/variant/{variantId} nhận multipart/form-data
+    const formData = new FormData();
+    formData.append("Image", file);
+    formData.append("ProductId", productId.toString());
+    formData.append("VariantId", variantId.toString());
 
-    if (!(payload instanceof FormData)) {
-      const fd = new FormData();
-      if (payload.newImage || payload.NewImage) {
-        fd.append("NewImage", payload.newImage || payload.NewImage);
-      }
-      if (payload.variantName !== undefined || payload.VariantName !== undefined) {
-        fd.append("VariantName", payload.variantName ?? payload.VariantName ?? "");
-      }
-      if (payload.price !== undefined || payload.Price !== undefined) {
-        fd.append("Price", String(payload.price ?? payload.Price ?? 0));
-      }
-      if (payload.stockQuantity !== undefined || payload.StockQuantity !== undefined) {
-        fd.append("StockQuantity", String(payload.stockQuantity ?? payload.StockQuantity ?? 0));
-      }
-      if (payload.sku !== undefined || payload.Sku !== undefined) {
-        fd.append("Sku", String(payload.sku ?? payload.Sku ?? ""));
-      }
-      if (payload.weightGrams !== undefined || payload.WeightGrams !== undefined) {
-        fd.append("WeightGrams", String(payload.weightGrams ?? payload.WeightGrams ?? 0));
-      }
-      body = fd;
-    }
-
-    const { data } = await axiosClient.put(`/variants/${id}`, body, { headers });
+    const { data } = await axiosClient.put(`/images/variant/${variantId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return data;
+  },
+  deleteVariantImage: async (variantId: number | string) => {
+    // Backend API: DELETE /api/v1/images/variant/{variantId}
+    const { data } = await axiosClient.delete(`/images/variant/${variantId}`);
     return data;
   },
   deleteVariant: async (id: string | number) => {
