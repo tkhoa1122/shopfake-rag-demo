@@ -75,13 +75,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
     const fetchDetail = async () => {
       try {
         setLoading(true);
-        const [res, variantsRes] = await Promise.all([
+        const [res, allVariants] = await Promise.all([
           orderAPI.getById(orderId),
-          variantAPI.getAll({ pageIndex: 1, pageSize: 100 }),
+          variantAPI.getAllFull(200),
         ]);
         const data = res?.data?.data || res?.data || res;
         setOrder(data);
-        setVariants(variantsRes?.data?.items || []);
+        setVariants(allVariants || []);
       } catch (err: any) {
         setError(err?.response?.data?.message || "Không thể tải chi tiết đơn hàng.");
       } finally {

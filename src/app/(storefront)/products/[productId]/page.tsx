@@ -65,16 +65,16 @@ export default function ProductDetailPage() {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [productRes, variantsRes, feedbacksRes] = await Promise.all([
+        const [productRes, allVariants, feedbacksRes] = await Promise.all([
           productAPI.getById(productIdNum),
-          variantAPI.getAll({ pageIndex: 1, pageSize: 100 }),
+          variantAPI.getAllFull(200),
           feedbackAPI.getProductFeedbacks(productIdNum, { pageIndex: 1, pageSize: 20 }),
         ]);
 
         setProduct(productRes.data ?? null);
         setFeedbacks(feedbacksRes.data?.items ?? []);
 
-        const productVariants = (variantsRes.data?.items ?? []).filter(
+        const productVariants = (allVariants ?? []).filter(
           (v) => v.productId === productIdNum && v.status === StatusEnum.Active
         );
         setVariants(productVariants);
@@ -86,7 +86,8 @@ export default function ProductDetailPage() {
             if (found) defaultVariant = found;
           }
           setSelectedVariant(defaultVariant);
-          setSelectedImage(defaultVariant.imageUrl?.[0] ?? "");
+          const allProductImgs = productVariants.flatMap((v) => v.imageUrl ?? []).filter(Boolean);
+          setSelectedImage(defaultVariant.imageUrl?.[0] || allProductImgs[0] || "");
         }
       } catch (err) {
         console.error("Lỗi:", err);
@@ -180,7 +181,10 @@ export default function ProductDetailPage() {
     );
   }
 
-  const allImages = selectedVariant?.imageUrl ?? [];
+  const allImages =
+    selectedVariant?.imageUrl && selectedVariant.imageUrl.length > 0
+      ? selectedVariant.imageUrl
+      : variants.flatMap((v) => v.imageUrl ?? []).filter(Boolean);
 
   return (
     <div className="min-h-screen bg-white">
