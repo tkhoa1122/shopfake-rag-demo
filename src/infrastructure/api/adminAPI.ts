@@ -119,24 +119,34 @@ export const adminAPI = {
     });
     return data;
   },
-  updateVariant: async (id: string | number, payload: any) => {
-    // Backend API: PUT /api/v1/variants/{id} nhận application/json (VariantUpdateRequest)
-    const jsonPayload = {
-      variantName: payload.variantName ?? payload.VariantName ?? "",
-      price: Number(payload.price ?? payload.Price ?? 0),
-      stockQuantity: Number(payload.stockQuantity ?? payload.StockQuantity ?? 0),
-      sku: payload.sku ?? payload.Sku ?? "",
-      weightGrams: Number(payload.weightGrams ?? payload.WeightGrams ?? 0)
-    };
-    const { data } = await axiosClient.put(`/variants/${id}`, jsonPayload);
+  updateVariant: async (id: string | number, payload: any, valueIds?: number[]) => {
+    // Backend API: PUT /api/v1/variants/{id} nhận multipart/form-data
+    const formData = new FormData();
+    formData.append("VariantName", (payload.variantName ?? payload.VariantName ?? "").toString());
+    formData.append("Price", (payload.price ?? payload.Price ?? 0).toString());
+    formData.append("StockQuantity", (payload.stockQuantity ?? payload.StockQuantity ?? 0).toString());
+    formData.append("Sku", (payload.sku ?? payload.Sku ?? "").toString());
+    formData.append("WeightGrams", (payload.weightGrams ?? payload.WeightGrams ?? 0).toString());
+
+    // Thêm danh sách VariantAttributeValuesIds
+    const finalValueIds = valueIds ?? payload.variantAttributeValuesIds ?? payload.VariantAttributeValuesIds ?? payload.valueIds ?? [];
+    if (Array.isArray(finalValueIds)) {
+      finalValueIds.forEach((valId: number | string) => {
+        if (valId !== undefined && valId !== null && valId !== "") {
+          formData.append("VariantAttributeValuesIds", valId.toString());
+        }
+      });
+    }
+
+    const { data } = await axiosClient.put(`/variants/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
     return data;
   },
-  updateVariantImage: async (variantId: number | string, file: File, productId: number | string) => {
-    // Backend API: PUT /api/v1/images/variant/{variantId} nhận multipart/form-data
+  updateVariantImage: async (variantId: number | string, file: File, productId?: number | string) => {
+    // Backend API: PUT /api/v1/images/variant/{variantId} nhận multipart/form-data với field 'file'
     const formData = new FormData();
-    formData.append("Image", file);
-    formData.append("ProductId", productId.toString());
-    formData.append("VariantId", variantId.toString());
+    formData.append("file", file);
 
     const { data } = await axiosClient.put(`/images/variant/${variantId}`, formData, {
       headers: { "Content-Type": "multipart/form-data" }

@@ -153,22 +153,23 @@ export default function VariantsManagementPage() {
       setIsSubmitting(true);
 
       if (editingVariantId) {
-        // 1. Cập nhật thông tin biến thể qua PUT /api/v1/variants/{id} (application/json)
+        // 1. Cập nhật thông tin biến thể qua PUT /api/v1/variants/{id} (multipart/form-data)
         const updatePayload = {
           variantName: variantForm.variantName,
           price: parseFloat(variantForm.price) || 0,
           stockQuantity: parseInt(variantForm.stockQuantity) || 0,
           sku: variantForm.sku,
-          weightGrams: parseInt(variantForm.weightGrams) || 0
+          weightGrams: parseInt(variantForm.weightGrams) || 0,
+          variantAttributeValuesIds: variantForm.valueIds
         };
 
-        await adminAPI.updateVariant(editingVariantId, updatePayload);
+        await adminAPI.updateVariant(editingVariantId, updatePayload, variantForm.valueIds);
 
         // 2. Cập nhật ảnh biến thể qua PUT /api/v1/images/variant/{variantId} nếu có chọn file mới
         if (selectedFile) {
           try {
             setIsUploading(true);
-            await adminAPI.updateVariantImage(editingVariantId, selectedFile, variantForm.productId);
+            await adminAPI.updateVariantImage(editingVariantId, selectedFile);
           } catch (imgErr: any) {
             console.warn("Lỗi khi cập nhật ảnh biến thể:", imgErr);
             showNotification("warning", "Cảnh báo ảnh", "Thông tin đã lưu nhưng không thể cập nhật ảnh mới.");
@@ -668,7 +669,7 @@ export default function VariantsManagementPage() {
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-sm font-medium text-slate-700">Đặc tính (Màu sắc, Kích cỡ...)</label>
                     {editingVariantId && (
-                      <span className="text-xs text-slate-400 italic">Cố định theo biến thể đã tạo</span>
+                      <span className="text-xs text-emerald-600 font-medium">Đã hỗ trợ đổi đặc tính</span>
                     )}
                   </div>
                   <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-4">

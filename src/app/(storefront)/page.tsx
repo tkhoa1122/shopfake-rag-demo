@@ -47,11 +47,11 @@ function StorefrontContent() {
 
     try {
       const [productsRes, categoriesRes, variantsRes] = await Promise.all([
-        productAPI.getAll({ pageIndex: 1, pageSize: 50 }),
+        productAPI.getAll({ pageIndex: 1, pageSize: 200 }),
         categoryAPI.getAll({ pageIndex: 1, pageSize: 100 }),
         variantAPI.getAll({
           pageIndex: 1,
-          pageSize: 100,
+          pageSize: 500,
           orderBy: orderBy || undefined,
         }),
       ]);
