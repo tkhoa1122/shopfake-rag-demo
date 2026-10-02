@@ -56,6 +56,60 @@ function getAddToCartSku(href?: string): string | null {
   }
 }
 
+function extractSkuNearImage(messageContext?: string, src?: string, alt?: string): string | null {
+  if (!messageContext) return null;
+
+  // 1. Tìm vị trí của ảnh trong messageContext bằng src, tên file ảnh, hoặc alt
+  let imgIndex = -1;
+  if (src) {
+    const cleanUrl = src.split("?")[0];
+    imgIndex = messageContext.indexOf(cleanUrl);
+    if (imgIndex === -1) {
+      const fileName = cleanUrl.split("/").pop();
+      if (fileName && fileName.length >= 4) {
+        imgIndex = messageContext.indexOf(fileName);
+      }
+    }
+    if (imgIndex === -1) {
+      const id = extractImageIdentifier(src);
+      if (id && id.length >= 4) {
+        imgIndex = messageContext.indexOf(id);
+      }
+    }
+  }
+
+  if (imgIndex === -1 && alt && alt.trim().length >= 3) {
+    imgIndex = messageContext.indexOf(alt.trim());
+  }
+
+  // 2. Nếu tìm thấy vị trí của ảnh, chỉ tìm SKU trong đoạn văn bản thuộc về ảnh đó
+  // (từ vị trí ảnh đến trước ảnh kế tiếp hoặc tối đa 1000 ký tự)
+  if (imgIndex !== -1) {
+    const textAfterImage = messageContext.slice(imgIndex);
+    const nextImgMatch = textAfterImage.slice(1).search(/!\[|<img/i);
+    const localSection = nextImgMatch !== -1
+      ? textAfterImage.slice(0, nextImgMatch + 1)
+      : textAfterImage.slice(0, 1000);
+
+    const skuMatch = localSection.match(/(?:^|#|\/)\/?add-to-cart\/([^)\s"'#]+)/i);
+    if (skuMatch && skuMatch[1]) {
+      try {
+        return decodeURIComponent(skuMatch[1]).trim().toLowerCase();
+      } catch {}
+    }
+  }
+
+  // 3. Nếu không xác định được vị trí ảnh nhưng toàn bộ tin nhắn CHỈ CÓ DUY NHẤT 1 SKU
+  const allSkuMatches = Array.from(messageContext.matchAll(/(?:^|#|\/)\/?add-to-cart\/([^)\s"'#]+)/gi));
+  if (allSkuMatches.length === 1 && allSkuMatches[0][1]) {
+    try {
+      return decodeURIComponent(allSkuMatches[0][1]).trim().toLowerCase();
+    } catch {}
+  }
+
+  return null;
+}
+
 function MarkdownText({ text, onImageClick, onAddToCart }: {
   text: string;
   onImageClick?: (src: string, alt: string, messageContext?: string) => void;
@@ -363,21 +417,8 @@ export function FloatingChatbot() {
       let matchVariant: VariantResponse | undefined;
       let matchProductId: number | undefined;
 
-      // Ưu tiên 1: Trích xuất SKU từ link "thêm vào giỏ" trong cùng tin nhắn AI (độ chính xác 100%)
-      if (messageContext) {
-        const skuMatch = messageContext.match(/(?:^|#|\/)\/?add-to-cart\/([^)\s"'#]+)/i);
-        if (skuMatch && skuMatch[1]) {
-          const targetSku = decodeURIComponent(skuMatch[1]).trim().toLowerCase();
-          const found = variantsList.find(v => v.sku?.trim().toLowerCase() === targetSku);
-          if (found) {
-            matchVariant = found;
-            matchProductId = found.productId;
-          }
-        }
-      }
-
-      // Ưu tiên 2: Khớp theo mã định danh ảnh (Cloudinary public ID / Tên file ảnh)
-      if (!matchProductId && src) {
+      // Ưu tiên 1 (Chính xác nhất): Khớp trực tiếp theo ảnh được bấm (Cloudinary public ID / Tên file ảnh / URL ảnh)
+      if (src) {
         const srcId = extractImageIdentifier(src);
         if (srcId && srcId.length >= 4) {
           matchVariant = variantsList.find(v => 
@@ -390,40 +431,51 @@ export function FloatingChatbot() {
             matchProductId = matchVariant.productId;
           }
         }
-      }
 
-      // Ưu tiên 3: Khớp URL ảnh gốc
-      if (!matchProductId && src) {
-        const cleanSrc = src.split("?")[0].toLowerCase();
-        matchVariant = variantsList.find(v =>
-          v.imageUrl?.some(img => img.split("?")[0].toLowerCase() === cleanSrc)
-        );
-        if (matchVariant) {
-          matchProductId = matchVariant.productId;
+        if (!matchProductId) {
+          const cleanSrc = src.split("?")[0].toLowerCase();
+          matchVariant = variantsList.find(v =>
+            v.imageUrl?.some(img => img.split("?")[0].toLowerCase() === cleanSrc)
+          );
+          if (matchVariant) {
+            matchProductId = matchVariant.productId;
+          }
         }
       }
 
-      // Ưu tiên 4: Khớp theo alt text hoặc tên sản phẩm
+      // Ưu tiên 2: Trích xuất SKU từ link "thêm vào giỏ" nằm trong khối của CHÍNH ẢNH NÀY
+      if (!matchProductId && messageContext) {
+        const targetSku = extractSkuNearImage(messageContext, src, alt);
+        if (targetSku) {
+          const found = variantsList.find(v => v.sku?.trim().toLowerCase() === targetSku);
+          if (found) {
+            matchVariant = found;
+            matchProductId = found.productId;
+          }
+        }
+      }
+
+      // Ưu tiên 3: Khớp theo alt text của ảnh
       if (!matchProductId && alt) {
         const cleanAlt = cleanText(alt);
         if (cleanAlt.length >= 3) {
-          // 4a. Khớp chính xác tên biến thể
+          // 3a. Khớp chính xác tên biến thể
           matchVariant = variantsList.find(v => cleanText(v.variantName) === cleanAlt);
           if (matchVariant) matchProductId = matchVariant.productId;
 
-          // 4b. Khớp chính xác tên sản phẩm trong danh sách biến thể
+          // 3b. Khớp chính xác tên sản phẩm trong danh sách biến thể
           if (!matchProductId) {
             matchVariant = variantsList.find(v => cleanText(v.productName) === cleanAlt);
             if (matchVariant) matchProductId = matchVariant.productId;
           }
 
-          // 4c. Khớp chính xác tên sản phẩm trong bảng sản phẩm
+          // 3c. Khớp chính xác tên sản phẩm trong bảng sản phẩm
           if (!matchProductId) {
             const foundProd = productsList.find(p => cleanText(p.name) === cleanAlt);
             if (foundProd) matchProductId = foundProd.id;
           }
 
-          // 4d. Khớp chuỗi con nếu alt đủ dài (tối thiểu 5 ký tự)
+          // 3d. Khớp chuỗi con nếu alt đủ dài (tối thiểu 5 ký tự)
           if (!matchProductId && cleanAlt.length >= 5) {
             matchVariant = variantsList.find(v => {
               const pName = cleanText(v.productName);
@@ -442,9 +494,18 @@ export function FloatingChatbot() {
         }
       }
 
-      // Ưu tiên 5: Nếu vẫn chưa tìm thấy và có messageContext, tìm tên sản phẩm nào có trong tin nhắn
+      // Ưu tiên 4: Dò tên sản phẩm trong khối văn bản cục bộ của ảnh này
       if (!matchProductId && messageContext) {
-        const cleanMsg = cleanText(messageContext);
+        let localText = messageContext;
+        if (src) {
+          const idx = messageContext.indexOf(src.split("?")[0]);
+          if (idx !== -1) {
+            const after = messageContext.slice(idx);
+            const nextImg = after.slice(1).search(/!\[|<img/i);
+            localText = nextImg !== -1 ? after.slice(0, nextImg + 1) : after.slice(0, 1000);
+          }
+        }
+        const cleanMsg = cleanText(localText);
         const matchedProds = productsList.filter(p => {
           const pName = cleanText(p.name);
           return pName.length >= 6 && cleanMsg.includes(pName);
